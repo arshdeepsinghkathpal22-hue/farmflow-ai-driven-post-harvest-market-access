@@ -288,16 +288,9 @@ pledgeable against a harvest loan.
 
 ## Team
 
-Built by four third-year B.Tech Computer Science students at Jaypee Institute of Information
-Technology, Noida, for **Ideas of India 2026** under the _Sovereign Technology for India_ track.
-
-| | |
-| --- | --- |
-| **Harsh Mittal** | Team Leader - product direction, booking engine architecture |
-| **Priyanshu Sharma** | Aggregation logic, storage matching, mandi price modelling |
-| **Arshdeep Singh** | Farmer application, voice interaction, bilingual interface |
-| **Ayush Sarraf** | Storage owner dashboard, field research, pilot operations |
+Built by B.Tech Computer Science students at Jaypee Institute of Information Technology, Noida.
+The team is listed in the [project README](../README.md).
 
 ## License
 
-[MIT](LICENSE)
+[MIT](../LICENSE)
