@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "inputSize": 176,
+  "mean": [
+    0.485,
+    0.456,
+    0.406
+  ],
+  "std": [
+    0.229,
+    0.224,
+    0.225
+  ],
+  "crops": [
+    "bell_pepper",
+    "other_produce",
+    "tomato"
+  ],
+  "stages": [
+    "ageing",
+    "fresh",
+    "spoiled",
+    "unripe"
+  ],
+  "shelfLifeDays": {
+    "tomato": {
+      "unripe": 12.0,
+      "fresh": 7.0,
+      "ageing": 2.5,
+      "spoiled": 0.0
+    },
+    "bell_pepper": {
+      "unripe": 13.0,
+      "fresh": 11.0,
+      "ageing": 3.5,
+      "spoiled": 0.0
+    },
+    "other_produce": {
+      "unripe": 10.0,
+      "fresh": 8.0,
+      "ageing": 3.0,
+      "spoiled": 0.0
+    }
+  },
+  "stageQuality": {
+    "unripe": 88,
+    "fresh": 92,
+    "ageing": 55,
+    "spoiled": 18
+  },
+  "trainedOn": {
+    "sources": [
+      "VegNet, Mendeley Data, DOI 10.17632/6nxnjbn9w6.1, CC BY",
+      "Fruit and Vegetable Disease (Healthy vs Rotten), Kaggle, muhammad0subhan"
+    ],
+    "trainImages": 5985,
+    "testImages": 1283
+  },
+  "testAccuracy": {
+    "crop": 0.9891,
+    "cropMacroF1": 0.9889,
+    "stage": 0.9665,
+    "stageMacroF1": 0.9705
+  },
+  "perClass": {
+    "crop": {
+      "bell_pepper": {
+        "n": 357,
+        "recall": 0.9692,
+        "precision": 0.9914
+      },
+      "other_produce": {
+        "n": 392,
+        "recall": 1.0,
+        "precision": 0.9975
+      },
+      "tomato": {
+        "n": 534,
+        "recall": 0.9944,
+        "precision": 0.9815
+      }
+    },
+    "stage": {
+      "ageing": {
+        "n": 515,
+        "recall": 0.9573,
+        "precision": 0.9801
+      },
+      "fresh": {
+        "n": 451,
+        "recall": 0.9867,
+        "precision": 0.9488
+      },
+      "spoiled": {
+        "n": 225,
+        "recall": 0.9333,
+        "precision": 0.9589
+      },
+      "unripe": {
+        "n": 92,
+        "recall": 1.0,
+        "precision": 1.0
+      }
+    }
+  }
+}

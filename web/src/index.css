@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-surface-container text-on-surface font-sans antialiased;
+    margin: 0;
+  }
+
+  /* Every interactive element keeps a 48px hit area (DESIGN.md touch safety). */
+  button,
+  a[role='button'] {
+    min-height: 48px;
+  }
+}
+
+@layer components {
+  .cc-card {
+    @apply bg-surface-container-lowest rounded-md shadow-card;
+  }
+
+  /* Thick left accent categorises card content: green = general, blue = cold-chain. */
+  .cc-accent-green {
+    @apply border-l-4 border-primary-container;
+  }
+
+  .cc-accent-blue {
+    @apply border-l-4 border-tertiary-container;
+  }
+
+  .cc-accent-amber {
+    @apply border-l-4 border-secondary-container;
+  }
+
+  .cc-accent-red {
+    @apply border-l-4 border-error;
+  }
+
+  .cc-btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-6 py-4
+           text-sm font-semibold leading-tight transition
+           focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/25;
+  }
+
+  .cc-btn-primary {
+    @apply cc-btn bg-primary text-on-primary shadow-card hover:bg-primary-container active:scale-[0.98];
+  }
+
+  .cc-btn-outline {
+    @apply cc-btn border-2 border-primary bg-transparent text-primary hover:bg-primary/5 active:scale-[0.98];
+  }
+
+  .cc-btn-amber {
+    @apply cc-btn border-2 border-secondary-container bg-transparent text-secondary hover:bg-secondary-container/10 active:scale-[0.98];
+  }
+
+  .cc-chip {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium;
+  }
+
+  .cc-field {
+    @apply h-14 w-full rounded-sm border-2 border-transparent bg-surface-container-low px-4
+           text-base text-on-surface transition
+           focus:border-primary focus:outline-none;
+  }
+}
+
+/* Each screen enters with a short rise, so navigation reads as a push rather
+   than a repaint. Respects a reduced-motion preference. */
+@layer components {
+  .cc-screen {
+    animation: cc-screen-in 0.28s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+  }
+}
+
+@keyframes cc-screen-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Hide scrollbars on the horizontal carousels without losing scrollability. */
+.cc-scroll-x {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.cc-scroll-x::-webkit-scrollbar {
+  display: none;
+}

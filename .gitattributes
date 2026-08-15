@@ -1,0 +1,12 @@
+# Store every text file with LF endings, whatever the machine that wrote it
+# used. Without this the repository fills with CRLF from Windows checkouts and
+# the first diff from a Linux machine shows every line of every file as changed.
+* text=auto eol=lf
+
+# Binary, so git must not try to normalise or diff them as text.
+*.png binary
+*.jpg binary
+*.onnx binary
+*.pt binary
+*.pdf binary
+*.svg text eol=lf

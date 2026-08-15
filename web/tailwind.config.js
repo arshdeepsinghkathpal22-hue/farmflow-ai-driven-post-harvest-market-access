@@ -1,0 +1,72 @@
+/** @type {import('tailwindcss').Config} */
+export default {
+  content: ['./index.html', './src/**/*.{js,jsx}'],
+  theme: {
+    extend: {
+      colors: {
+        surface: '#fdf9f0',
+        'surface-dim': '#dddad1',
+        'surface-container-lowest': '#ffffff',
+        'surface-container-low': '#f7f3ea',
+        'surface-container': '#f1eee5',
+        'surface-container-high': '#ece8df',
+        'surface-container-highest': '#e6e2d9',
+        'on-surface': '#1c1c17',
+        'on-surface-variant': '#3f4940',
+        'inverse-surface': '#31312b',
+        'inverse-on-surface': '#f4f0e8',
+        outline: '#6f7a6f',
+        'outline-variant': '#becabd',
+        primary: '#006030',
+        'on-primary': '#ffffff',
+        'primary-container': '#1b7a43',
+        'on-primary-container': '#abffbf',
+        'inverse-primary': '#80d998',
+        secondary: '#855300',
+        'on-secondary': '#ffffff',
+        'secondary-container': '#fea619',
+        'on-secondary-container': '#684000',
+        tertiary: '#004fab',
+        'on-tertiary': '#ffffff',
+        'tertiary-container': '#0566d9',
+        'on-tertiary-container': '#e6ecff',
+        error: '#ba1a1a',
+        'on-error': '#ffffff',
+        'error-container': '#ffdad6',
+        'on-error-container': '#93000a',
+        'primary-fixed': '#9bf6b2',
+        'secondary-fixed': '#ffddb8',
+        'tertiary-fixed': '#d8e2ff',
+      },
+      fontFamily: {
+        sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'],
+      },
+      borderRadius: {
+        sm: '0.5rem',
+        DEFAULT: '1rem',
+        md: '1.5rem',
+        lg: '2rem',
+        xl: '3rem',
+      },
+      boxShadow: {
+        card: '0 4px 12px rgba(27, 122, 67, 0.05)',
+        lifted: '0 8px 24px rgba(27, 122, 67, 0.12)',
+      },
+      keyframes: {
+        pulseRing: {
+          '0%': { transform: 'scale(0.9)', opacity: '0.7' },
+          '100%': { transform: 'scale(1.6)', opacity: '0' },
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(12px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' },
+        },
+      },
+      animation: {
+        'pulse-ring': 'pulseRing 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite',
+        'slide-up': 'slideUp 0.35s ease-out both',
+      },
+    },
+  },
+  plugins: [],
+}

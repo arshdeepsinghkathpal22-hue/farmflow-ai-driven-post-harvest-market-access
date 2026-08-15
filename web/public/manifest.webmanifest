@@ -1,0 +1,21 @@
+{
+  "name": "FarmFlow - Micro Cold Storage & Market Access",
+  "short_name": "FarmFlow",
+  "description": "Pool small farmers' produce into one profitable cold storage booking.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdf9f0",
+  "theme_color": "#006030",
+  "lang": "en-IN",
+  "categories": ["agriculture", "productivity"],
+  "icons": [
+    {
+      "src": "./favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
