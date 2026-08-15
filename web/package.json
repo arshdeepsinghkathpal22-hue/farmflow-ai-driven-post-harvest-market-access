@@ -19,7 +19,7 @@
     "test:vision": "node scripts/vision-check.mjs",
     "test": "npm run test:intent && npm run test:decision && npm run test:vision",
     "shots": "node scripts/shots.mjs ../docs/screenshots",
-    "deck-hero": "node scripts/deck-hero.mjs ../docs/deck-hero.png",
+    "deck-shots": "node scripts/deck-shots.mjs",
     "docs": "node scripts/print-docs.mjs ../../FarmFlow_Submission/08_Document_Sources ../../FarmFlow_Submission"
   },
   "dependencies": {
