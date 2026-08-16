@@ -234,7 +234,7 @@ publishes it to GitHub Pages on every push to `main`.
 2. In the repository, open **Settings → Pages** and set **Source** to **GitHub Actions**.
 3. Push again, or run the workflow manually from the **Actions** tab.
 
-The site lands at `https://<username>.github.io/<repo-name>/`. It works from a project subpath
+The site lands at `https://itsharshcoder.github.io/Farm-Flow/`. It works from a project subpath
 without configuration because the build uses a relative base and the router keeps its state in the
 hash fragment.
 
