@@ -169,7 +169,7 @@ export default function Profile() {
       <p className="pb-2 text-center text-xs leading-relaxed text-on-surface-variant">
         {BRAND.name} prototype · Ideas of India 2026
         <br />
-        Sovereign Technology for India · JIIT Noida
+        Inclusive Innovation for Bharat · JIIT Noida
       </p>
     </div>
   )
