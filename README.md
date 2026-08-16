@@ -373,12 +373,7 @@ check that stops existing the moment the browser breaks, which is exactly when i
 
 **Kisan Rakshak**, B.Tech CSE, Jaypee Institute of Information Technology, Noida.
 
-- Harsh Mittal (team leader)
-- Arshdeep Singh
-- Ayush Sarraf
-- Yuvi Jhawar
-- Ayushi Tripathi
-- Harshit Singh
+Team lead: Harsh Mittal.
 
 ## License
 
