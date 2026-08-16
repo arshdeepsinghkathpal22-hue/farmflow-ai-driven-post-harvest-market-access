@@ -1,5 +1,5 @@
 /**
- * Capture the screenshots the SIH deck uses, cut at block boundaries.
+ * Capture the screenshots the presentation deck uses, cut at block boundaries.
  *
  * The first version of this cropped the full page screenshots to a fixed
  * aspect ratio, which sliced wherever that landed: through the middle of a

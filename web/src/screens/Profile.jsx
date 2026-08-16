@@ -166,10 +166,15 @@ export default function Profile() {
         </button>
       </div>
 
+      {/*
+        No competition is named here. The same prototype is entered in more
+        than one, each under a different theme, and a build that names one of
+        them is wrong in the others. The team and the college do not change.
+      */}
       <p className="pb-2 text-center text-xs leading-relaxed text-on-surface-variant">
-        {BRAND.name} prototype · Ideas of India 2026
+        {BRAND.name} prototype · Team Kisan Rakshak
         <br />
-        Sovereign Technology for India · JIIT Noida
+        Jaypee Institute of Information Technology, Noida
       </p>
     </div>
   )
