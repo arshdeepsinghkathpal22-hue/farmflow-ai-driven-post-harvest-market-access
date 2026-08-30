@@ -368,13 +368,3 @@ check that stops existing the moment the browser breaks, which is exactly when i
 **225 automated checks in total.**
 
 ---
-
-## Team
-
-**Kisan Rakshak**, B.Tech CSE, Jaypee Institute of Information Technology, Noida.
-
-Team lead: Harsh Mittal.
-
-## License
-
-MIT
