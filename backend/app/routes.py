@@ -473,3 +473,57 @@ def reset_demo(db: Session = Depends(get_db)) -> DemoResetOut:
         scans_cleared=scans,
         slots_freed=slots,
     )
+
+# ─────────────────────────────────────────────────────── live mandi prices ──
+
+
+@router.get("/prices/live")
+def live_mandi_prices(commodity: str, state: str = "Uttar Pradesh") -> dict:
+    """Proxy the Agmarknet daily-price dataset on data.gov.in.
+
+    Proxied server-side because the browser cannot call data.gov.in directly
+    (no CORS), and because the API key belongs in the environment, not in a
+    JavaScript bundle. Without a key this answers 503 with a plain reason and
+    the app falls back to its modelled price series - the demo never breaks
+    because a government API is slow, down, or keyless.
+    """
+    settings = get_settings()
+    if not settings.mandi_api_key:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "Live mandi prices are not configured. Set MANDI_API_KEY to a data.gov.in key.",
+        )
+
+    import json
+    import urllib.parse
+    import urllib.request
+
+    query = urllib.parse.urlencode(
+        {
+            "api-key": settings.mandi_api_key,
+            "format": "json",
+            "limit": 12,
+            "filters[commodity]": commodity,
+            "filters[state]": state,
+        }
+    )
+    url = f"https://api.data.gov.in/resource/{settings.mandi_resource_id}?{query}"
+    try:
+        with urllib.request.urlopen(url, timeout=6) as response:  # noqa: S310 - fixed host
+            payload = json.load(response)
+    except Exception as error:  # pragma: no cover - network path
+        raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"Agmarknet did not answer: {error}") from error
+
+    records = [
+        {
+            "market": r.get("market"),
+            "district": r.get("district"),
+            "commodity": r.get("commodity"),
+            "arrival_date": r.get("arrival_date"),
+            # Agmarknet publishes rupees per quintal; the app thinks per kg.
+            "modal_price_per_kg": round(float(r.get("modal_price", 0) or 0) / 100, 2),
+        }
+        for r in payload.get("records", [])
+    ]
+    return {"source": "data.gov.in / Agmarknet", "records": records}
+

@@ -17,7 +17,7 @@ export default function Guide() {
   const [openId, setOpenId] = useState(copy.sections[0]?.id ?? null)
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5">
       <SectionTitle en={copy.guideTitle} sub={copy.guideLead} />
 
       {/* Switching here switches the whole app, including the microphone. */}

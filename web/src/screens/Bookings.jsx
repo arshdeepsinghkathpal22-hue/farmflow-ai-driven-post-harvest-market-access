@@ -2,8 +2,9 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, CloudOff, Inbox, Mic, Users } from 'lucide-react'
 import { useApp } from '../store/context'
 import { getCrop, getStorage } from '../data/seed'
-import { spoilage } from '../lib/ai'
+import { shelfTone, spoilage } from '../lib/ai'
 import { dateShort, kg } from '../lib/format'
+import { DAY_LABELS } from '../lib/intent'
 import { Bilingual, Card, Chip, SectionTitle } from '../components/ui'
 
 const STATUS_TONE = {
@@ -29,7 +30,7 @@ const statusLabel = (status, online) => {
 }
 
 export default function Bookings() {
-  const { bookings, cancelBooking, notify, online } = useApp()
+  const { bookings, cancelBooking, notify, online, lang } = useApp()
 
   return (
     <div className="space-y-5">
@@ -54,7 +55,7 @@ export default function Bookings() {
           </Link>
         </Card>
       ) : (
-        <ul className="space-y-4">
+        <ul className="space-y-4 lg:grid lg:grid-cols-2 lg:items-start lg:gap-4 lg:space-y-0">
           {bookings.map((b) => {
             const crop = getCrop(b.cropId)
             const storage = getStorage(b.storageId)
@@ -86,7 +87,8 @@ export default function Bookings() {
                         )}
                       </div>
                       <p className="truncate text-sm text-on-surface-variant">
-                        {storage.name} · {b.pickup}
+                        {storage.name} ·{' '}
+                        {(b.pickupDayId && (DAY_LABELS[b.pickupDayId]?.[lang] ?? b.pickup)) || b.pickup}
                       </p>
                       <p className="mt-0.5 text-xs text-on-surface-variant">
                         #{b.id} · in on {dateShort(b.checkinAt)}
@@ -115,7 +117,7 @@ export default function Bookings() {
                       <Chip tone="red">{b.syncError}</Chip>
                     )}
                     {!cancelled && (
-                      <Chip tone={decay.urgency === 'ok' ? 'neutral' : 'red'}>
+                      <Chip tone={shelfTone(decay.remaining)}>
                         Fresh for {decay.remaining} more days
                       </Chip>
                     )}

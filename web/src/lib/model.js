@@ -174,6 +174,19 @@ export async function classifyProduce(source) {
     const shelf = meta.shelfLifeDays?.[crop]?.[stage]
     const quality = meta.stageQuality?.[stage]
 
+    // The expectation over stages, not the winner's constant. Two fresh
+    // tomatoes rarely get the same softmax, so this number - unlike
+    // quality[argmax] - is different for every photograph, while still being
+    // entirely the model's own opinion.
+    const expectedQuality = meta.stages.reduce(
+      (sum, s, i) => sum + stageProbs[i] * (meta.stageQuality?.[s] ?? 50),
+      0,
+    )
+    const expectedShelf = meta.stages.reduce(
+      (sum, s, i) => sum + stageProbs[i] * (meta.shelfLifeDays?.[crop]?.[s] ?? 0),
+      0,
+    )
+
     return {
       crop,
       stage,
@@ -183,6 +196,8 @@ export async function classifyProduce(source) {
       // does not measure days and this is not presented as if it did.
       remainingDays: typeof shelf === 'number' ? shelf : null,
       freshness: typeof quality === 'number' ? quality : null,
+      expectedFreshness: Math.round(expectedQuality * 10) / 10,
+      expectedRemainingDays: Math.round(expectedShelf * 10) / 10,
       cropProbabilities: Object.fromEntries(meta.crops.map((c, i) => [c, Math.round(cropProbs[i] * 100)])),
       stageProbabilities: Object.fromEntries(meta.stages.map((s, i) => [s, Math.round(stageProbs[i] * 100)])),
       accuracy: meta.testAccuracy,

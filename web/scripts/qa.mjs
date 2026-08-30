@@ -96,6 +96,10 @@ await sleep(700)
 check('guide stays dismissed after reload', await page.evaluate(
   () => !document.querySelector('[role="dialog"]')))
 
+// The first-open gate is under test above; from here on the suite needs the
+// app to behave like a returning visitor, so the entry is marked.
+await page.evaluate(() => localStorage.setItem('farmflow.entry.v1', '1'))
+
 /* ── routes ─────────────────────────────────────────────────────────────── */
 
 const ROUTES = {
@@ -106,7 +110,6 @@ const ROUTES = {
   '#/group': 'Join Group Booking',
   '#/bookings': 'My Bookings',
   '#/marketplace': 'Buyer Marketplace',
-  '#/impact': 'Cluster Impact',
   '#/profile': 'Profile',
   // The guide heading carries the product name in the farmer's own script, so
   // asserting on the Latin wordmark fails as soon as the app opens in Hindi.
@@ -146,7 +149,6 @@ for (const [crop, want] of Object.entries({
 
 for (const [hash, label] of [
   ['#/advisor', 'price forecast'],
-  ['#/impact', 'monthly food saved'],
 ]) {
   await go(hash)
   const bars = await page.evaluate(() =>
@@ -441,9 +443,16 @@ await sleep(450)
 check('empty category handled', (await text()).includes('No lots listed'))
 await clickText('Vegetables')
 await sleep(450)
-await clickText('Buy Direct')
-await sleep(600)
-check('buying marks the lot ordered', (await text()).includes('Order Placed'))
+await clickText('Add to cart')
+await sleep(500)
+check('adding shows the cart bar', (await text()).includes('lot ·') || (await text()).includes('lots ·'))
+await page.evaluate(() => {
+  ;[...document.querySelectorAll('button')].find((b) => b.innerText.includes('→'))?.click()
+})
+await sleep(500)
+await clickText('Place order')
+await sleep(700)
+check('buying marks the lot ordered', (await text()).includes('Ordered'))
 
 /* ── reset ──────────────────────────────────────────────────────────────── */
 
@@ -547,7 +556,7 @@ const freshVerdict = await readVerdict()
 check('clean produce is scored and dated', freshVerdict.freshness !== null && freshVerdict.days !== null,
   `score=${freshVerdict.freshness} days=${freshVerdict.days}`)
 check('clean produce is sent to cold storage', /cold storage/i.test(freshVerdict.text))
-check('the analyser shows its working', /dark spots and blemishes/i.test(freshVerdict.text))
+check('the analyser shows its region scores', /regions scored on-device/i.test(freshVerdict.text))
 
 // The photo must end in an amount of money, not a score. This is the join
 // between the vision pipeline and the price forecast, and it is the single

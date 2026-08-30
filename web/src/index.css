@@ -1,3 +1,10 @@
+/* Self-hosted so the font works exactly the same with no network - the same
+   promise the rest of the app makes. */
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,8 +15,11 @@
   }
 
   body {
-    @apply bg-surface-container text-on-surface font-sans antialiased;
+    @apply text-on-surface font-sans antialiased;
     margin: 0;
+    /* One gentle field-green wash. Anything more reads as noise on a phone. */
+    background: linear-gradient(180deg, #f1f5ec 0%, #f3f1e8 360px, #f1eee5 100%);
+    background-attachment: fixed;
   }
 
   /* Every interactive element keeps a 48px hit area (DESIGN.md touch safety). */
@@ -21,7 +31,9 @@
 
 @layer components {
   .cc-card {
-    @apply bg-surface-container-lowest rounded-md shadow-card;
+    @apply bg-surface-container-lowest rounded-md;
+    border: 1px solid rgba(190, 202, 189, 0.3);
+    box-shadow: 0 3px 14px rgba(27, 122, 67, 0.06);
   }
 
   /* Thick left accent categorises card content: green = general, blue = cold-chain. */
@@ -48,7 +60,8 @@
   }
 
   .cc-btn-primary {
-    @apply cc-btn bg-primary text-on-primary shadow-card hover:bg-primary-container active:scale-[0.98];
+    @apply cc-btn bg-primary text-on-primary hover:bg-primary-container active:scale-[0.98];
+    box-shadow: 0 2px 8px rgba(0, 96, 48, 0.18);
   }
 
   .cc-btn-outline {
@@ -74,7 +87,10 @@
    than a repaint. Respects a reduced-motion preference. */
 @layer components {
   .cc-screen {
-    animation: cc-screen-in 0.28s cubic-bezier(0.22, 0.7, 0.3, 1) both;
+    /* fill-mode backwards, not both: `both` pins the final keyframe's
+       transform on <main> forever, making it a containing block that breaks
+       position:fixed children (the cart bar) and makes scrolling feel buggy. */
+    animation: cc-screen-in 0.28s cubic-bezier(0.22, 0.7, 0.3, 1) backwards;
   }
 }
 
@@ -106,4 +122,50 @@
 }
 .cc-scroll-x::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Scan frame: the sweep, the mesh, the settled region map ────────────── */
+
+.sf-sweep {
+  animation: sf-sweep 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.sf-node {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-node 0.4s ease-out forwards;
+}
+.sf-dash {
+  animation: sf-dash 1.2s linear infinite;
+}
+.sf-ping {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: sf-ping 1.6s ease-out infinite;
+}
+.sf-ring {
+  transition: stroke-dashoffset 0.9s cubic-bezier(0.22, 0.7, 0.3, 1);
+}
+
+@keyframes sf-sweep {
+  0% { transform: translateY(-28px); }
+  100% { transform: translateY(228px); }
+}
+@keyframes sf-node {
+  from { opacity: 0; transform: scale(0.2); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes sf-dash {
+  to { stroke-dashoffset: -24; }
+}
+@keyframes sf-ping {
+  0% { opacity: 0.9; transform: scale(0.6); }
+  100% { opacity: 0; transform: scale(2.4); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sf-sweep, .sf-node, .sf-dash, .sf-ping {
+    animation: none;
+  }
+  .sf-node { opacity: 1; }
 }

@@ -13,7 +13,8 @@ import {
 } from 'lucide-react'
 import { useApp } from '../store/context'
 import { LANGUAGES } from '../i18n/languages'
-import { EXAMPLES, parseBest, parseBookingIntent } from '../lib/intent'
+import { DAY_LABELS, EXAMPLES, parseBest, parseBookingIntent } from '../lib/intent'
+import { addDays, dateShort } from '../lib/format'
 import { isSupported, listen } from '../lib/speech'
 import { matchStorages } from '../lib/ai'
 import { kg, rupee } from '../lib/format'
@@ -30,8 +31,17 @@ export default function VoiceBooking() {
   const [phase, setPhase] = useState(IDLE)
   const [heard, setHeard] = useState('')
   const [parsed, setParsed] = useState(null)
+  // The farmer's correction of the pickup day, when the parse got it wrong or
+  // the plan changed: { dayId, offset } for the three spoken days, or
+  // { date: 'YYYY-MM-DD' } for any calendar date.
+  const [pickupChoice, setPickupChoice] = useState(null)
   const [error, setError] = useState(null)
   const [exampleIndex, setExampleIndex] = useState(0)
+  const [typed, setTyped] = useState('')
+  // A parse that understood the crop and the day but not the quantity. The
+  // parser refuses to guess a lot size - rightly - so the screen asks with
+  // four chips instead of throwing the whole sentence away.
+  const [partial, setPartial] = useState(null)
 
   const session = useRef(null)
   const submitting = useRef(false)
@@ -55,18 +65,28 @@ export default function VoiceBooking() {
     setHeard(intent.transcript || transcript)
 
     if (!intent.ok) {
+      if (!intent.missing.includes('crop') && intent.cropId) {
+        // Everything but the quantity was understood - keep it and ask.
+        setPartial(intent)
+        setError(null)
+        setPhase(IDLE)
+        return
+      }
       const missing = intent.missing.includes('crop')
         ? 'Which crop was that? Try naming the crop and how much.'
         : 'How much was that? Try saying a number and a unit, like three crates.'
       setError(missing)
+      setPartial(null)
       setPhase(IDLE)
       return
     }
+    setPartial(null)
 
     const matches = matchStorages(intent.cropId, intent.quantity.quantityKg)
     const storage = matches.find((m) => m.acceptsLot) ?? matches[0]
 
     setParsed({ ...intent, storage })
+    setPickupChoice(null)
     setError(null)
     setPhase(PARSED)
   }
@@ -75,6 +95,7 @@ export default function VoiceBooking() {
     setError(null)
     setHeard('')
     setParsed(null)
+    setPartial(null)
     setPhase(LISTENING)
 
     session.current = listen({
@@ -109,11 +130,29 @@ export default function VoiceBooking() {
     if (submitting.current || !parsed) return
     submitting.current = true
 
+    let pickup = parsed.dayLabelEn
+    let pickupOffset = parsed.dayOffset
+    let pickupDayId = parsed.day
+    if (pickupChoice?.date) {
+      const chosen = new Date(`${pickupChoice.date}T00:00:00`)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      pickupOffset = Math.max(0, Math.round((chosen - today) / 86400000))
+      pickup = dateShort(chosen)
+      pickupDayId = null
+    } else if (pickupChoice) {
+      pickupOffset = pickupChoice.offset
+      pickupDayId = pickupChoice.dayId
+      pickup = DAY_LABELS[pickupChoice.dayId].en
+    }
+
     const booking = createBooking({
       cropId: parsed.cropId,
       quantityKg: parsed.quantity.quantityKg,
       storageId: parsed.storage.id,
-      pickup: parsed.dayLabelEn,
+      pickup,
+      pickupOffset,
+      pickupDayId,
       holdDays: 6,
     })
     notify(
@@ -125,7 +164,8 @@ export default function VoiceBooking() {
   const listening = phase === LISTENING
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:grid lg:grid-cols-[0.95fr,1.05fr] lg:items-start lg:gap-8 lg:space-y-0">
+      <div className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold text-primary">
           <Bilingual en="Voice Booking" hi="बोलकर बुक करें" />
@@ -199,6 +239,28 @@ export default function VoiceBooking() {
         >
           <Bilingual en="Try an example instead" hi="उदाहरण चलाकर देखें" />
         </button>
+
+        {/* The typed door. The microphone needs Chrome, HTTPS and a network;
+            a text box needs nothing, and it runs the identical parser - so the
+            flow survives any hall, and anyone can verify the parsing is real. */}
+        <form
+          className="mt-4 flex w-full max-w-sm gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            if (typed.trim()) interpret(typed.trim())
+          }}
+        >
+          <input
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            placeholder={(EXAMPLES[lang] ?? EXAMPLES.en)[0]}
+            aria-label="Type your booking instead"
+            className="cc-field !h-12 flex-1 text-sm"
+          />
+          <button type="submit" className="cc-btn-outline shrink-0 !px-4 !py-2 text-sm">
+            <Bilingual en="Parse" hi="समझो" />
+          </button>
+        </form>
       </div>
 
       {(heard || listening) && (
@@ -207,6 +269,50 @@ export default function VoiceBooking() {
             &ldquo;{heard || '…'}
             {listening && <span className="animate-pulse">|</span>}&rdquo;
           </p>
+        </Card>
+      )}
+      </div>
+
+      <div className="space-y-5">
+      {/* On a laptop, everything the app understood lives in this right-hand
+          column, beside the microphone rather than below it. */}
+      {!parsed && !partial && !error && (
+        <Card accent="none" className="hidden p-6 text-center text-sm leading-relaxed text-on-surface-variant lg:block">
+          Speak or type a booking - the understood crop, quantity and pickup date appear here for
+          confirmation before anything is booked.
+        </Card>
+      )}
+
+      {partial && phase !== PARSED && (
+        <Card accent="blue" className="animate-slide-up p-5">
+          <h2 className="text-base font-semibold">
+            <Bilingual en="Understood - just need the quantity" hi="समझ गए - बस मात्रा बताएं" />
+          </h2>
+          <p className="mt-1.5 text-sm text-on-surface-variant">
+            {partial.crop?.name} / {partial.crop?.nameHi} · <Bilingual en="pickup" hi="पिकअप" />{' '}
+            {partial.dayLabel}
+            {partial.day !== 'date' && ` · ${partial.dayDateShort}`}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[50, 100, 200, 450].map((qty) => (
+              <button
+                key={qty}
+                type="button"
+                className="cc-chip bg-surface-container-high !px-4 !py-2.5 text-sm font-semibold hover:bg-primary hover:text-on-primary"
+                onClick={() => {
+                  const quantity = { count: qty, unit: 'kg', quantityKg: qty, assumedUnit: false }
+                  const matches = matchStorages(partial.cropId, qty)
+                  const storage = matches.find((m) => m.acceptsLot) ?? matches[0]
+                  setParsed({ ...partial, ok: true, quantity, storage })
+                  setPartial(null)
+                  setPickupChoice(null)
+                  setPhase(PARSED)
+                }}
+              >
+                {qty} kg
+              </button>
+            ))}
+          </div>
         </Card>
       )}
 
@@ -245,13 +351,53 @@ export default function VoiceBooking() {
                 {kg(parsed.quantity.quantityKg)})
               </Row>
               <Row icon={CalendarDays} label="Pickup" labelHi="पिकअप">
-                {parsed.dayLabel}
+                {pickupChoice?.date
+                  ? dateShort(new Date(`${pickupChoice.date}T00:00:00`))
+                  : pickupChoice
+                    ? `${DAY_LABELS[pickupChoice.dayId][lang] ?? DAY_LABELS[pickupChoice.dayId].en} · ${dateShort(addDays(new Date(), pickupChoice.offset))}`
+                    : `${parsed.dayLabel}${parsed.day !== 'date' && parsed.dayDateShort ? ` · ${parsed.dayDateShort}` : ''}`}
               </Row>
               <Row icon={Snowflake} label="Matched storage" labelHi="गोदाम">
                 {parsed.storage.name} • {parsed.storage.distanceKm} km •{' '}
                 {rupee(parsed.storage.pricePerKgDay, { decimals: 2 })}/kg/day
               </Row>
             </dl>
+
+            {/* Speech names three days; a calendar names the rest. Whatever was
+                heard stands until the farmer taps something else. */}
+            <div className="mt-4">
+              <p className="text-xs font-semibold text-on-surface-variant">
+                <Bilingual en="Change pickup day" hi="पिकअप दिन बदलें" />
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {['today', 'tomorrow', 'dayAfter'].map((dayId, offset) => {
+                  const active = pickupChoice?.dayId === dayId || (!pickupChoice && parsed.day === dayId)
+                  return (
+                    <button
+                      key={dayId}
+                      type="button"
+                      onClick={() => setPickupChoice({ dayId, offset })}
+                      className={`cc-chip !py-2 text-sm ${
+                        active ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
+                      }`}
+                    >
+                      {DAY_LABELS[dayId][lang] ?? DAY_LABELS[dayId].en}
+                    </button>
+                  )
+                })}
+                <input
+                  type="date"
+                  aria-label="Pick any date"
+                  value={pickupChoice?.date ?? ''}
+                  min={new Date().toISOString().slice(0, 10)}
+                  max={addDays(new Date(), 60).toISOString().slice(0, 10)}
+                  onChange={(e) => e.target.value && setPickupChoice({ date: e.target.value })}
+                  className={`cc-chip !py-1.5 text-sm ${
+                    pickupChoice?.date ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
+                  }`}
+                />
+              </div>
+            </div>
 
             {parsed.quantity.assumedUnit && (
               <Chip tone="amber" className="mt-3">
@@ -275,6 +421,7 @@ export default function VoiceBooking() {
                 submitting.current = false
                 setPhase(IDLE)
                 setParsed(null)
+                setPickupChoice(null)
                 setHeard('')
               }}
             >
@@ -283,6 +430,7 @@ export default function VoiceBooking() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

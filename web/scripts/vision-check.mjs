@@ -132,6 +132,11 @@ const EXPECTED = {
   'tomato-spoiled.jpg': { crop: 'tomato', stage: 'spoiled', max: 35 },
   'capsicum-fresh.jpg': { crop: 'capsicum', stage: 'fresh', min: 70 },
   'capsicum-spoiled.jpg': { crop: null, stage: 'spoiled', max: 35 },
+  // Real photographs from the field test, not curated training-alikes.
+  'user-tomato-vine.jpg': { crop: 'tomato', stage: 'fresh', min: 75 },
+  'user-tomato-pile1.jpg': { crop: 'tomato', stage: 'fresh', min: 72 },
+  'user-tomato-pile2.jpg': { crop: 'tomato', stage: 'fresh', min: 72 },
+  'user-tomato-rotten.jpg': { crop: 'tomato', stage: 'spoiled', max: 30 },
 }
 
 let failures = 0

@@ -5,7 +5,6 @@ import {
   Calendar,
   CloudOff,
   Home,
-  LayoutDashboard,
   RefreshCw,
   Store,
   TrendingUp,
@@ -30,7 +29,7 @@ function TopBar() {
   const isHome = pathname === '/'
 
   return (
-    <header className="sticky top-0 z-20 border-b border-outline-variant/40 bg-surface/95 px-5 py-3 backdrop-blur">
+    <header className="sticky top-0 z-20 border-b border-outline-variant/30 bg-surface/95 px-5 py-3 backdrop-blur">
       <div className="flex items-center gap-3">
         {isHome ? (
           <Avatar name={farmer.name} size={44} />
@@ -100,7 +99,7 @@ function BottomNav() {
   return (
     <nav
       aria-label="Main navigation"
-      className="sticky bottom-0 z-20 border-t border-outline-variant/40 bg-surface-container-low/95 px-2 pb-2 pt-2 backdrop-blur"
+      className="sticky bottom-0 z-20 border-t border-outline-variant/30 bg-surface-container-lowest/95 px-2 pb-2 pt-2 shadow-[0_-4px_14px_rgba(27,122,67,0.06)] backdrop-blur lg:hidden"
     >
       <ul className="flex items-stretch justify-between">
         {NAV.map(({ to, en, hi, icon: Icon, end }) => (
@@ -111,7 +110,7 @@ function BottomNav() {
               className={({ isActive }) =>
                 `flex h-full min-h-[56px] flex-col items-center justify-center gap-1 rounded-md px-1 py-2 text-[11px] transition ${
                   isActive
-                    ? 'bg-primary text-on-primary'
+                    ? 'bg-primary text-on-primary shadow-card'
                     : 'text-on-surface-variant hover:bg-primary/5'
                 }`
               }
@@ -148,24 +147,52 @@ export default function FarmerLayout() {
 
   return (
     <div className="min-h-screen bg-surface-container">
-      {/* Desktop viewers see the mobile app centred; judges usually open on laptop. */}
-      <div className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col bg-surface shadow-lifted">
-        <TopBar />
-        <NetworkBanner />
-        {/* Keyed on the route so each screen replays its entrance animation. */}
-        <main key={pathname} className="cc-screen flex-1 px-5 pb-6 pt-5">
-          <Outlet />
-        </main>
-        <BottomNav />
-      </div>
+      {/* One codebase, two shells: a phone column on phones, and on a laptop a
+          left navigation rail with the content given real width - not an
+          Android screen marooned in the middle of a monitor. */}
+      <div className="mx-auto flex min-h-screen w-full max-w-[440px] bg-surface shadow-lifted lg:max-w-none lg:shadow-none">
+        <aside className="hidden w-60 shrink-0 flex-col border-r border-outline-variant/40 bg-surface-container-lowest px-4 py-6 lg:flex">
+          <p className="px-3 text-xl font-extrabold tracking-tight text-primary">FarmFlow</p>
+          <nav aria-label="Main navigation" className="mt-6 flex flex-col gap-1">
+            {NAV.map(({ to, en, hi, icon: Icon, end }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold transition ${
+                    isActive ? 'bg-primary text-on-primary shadow-card' : 'text-on-surface-variant hover:bg-primary/5'
+                  }`
+                }
+              >
+                <Icon size={20} strokeWidth={2.5} aria-hidden="true" />
+                <span>
+                  {en} <span className="font-medium opacity-80">/ {hi}</span>
+                </span>
+              </NavLink>
+            ))}
+          </nav>
+          <NavLink
+            to="/login"
+            className="mt-auto flex items-center gap-3 rounded-md px-3 py-3 text-sm font-semibold text-primary hover:bg-primary/5"
+          >
+            <User size={20} strokeWidth={2.5} aria-hidden="true" />
+            Sign in / roles
+          </NavLink>
+        </aside>
 
-      <a
-        href="#/owner"
-        className="fixed bottom-6 right-6 z-30 hidden items-center gap-2 rounded-full bg-inverse-surface px-5 py-3 text-sm font-semibold text-inverse-on-surface shadow-lifted hover:bg-primary lg:inline-flex"
-      >
-        <LayoutDashboard size={18} strokeWidth={2.5} aria-hidden="true" />
-        Storage Owner View
-      </a>
+        <div className="flex min-h-screen w-full min-w-0 flex-1 flex-col">
+          <TopBar />
+          <NetworkBanner />
+          {/* Keyed on the route so each screen replays its entrance animation. */}
+          <main key={pathname} className="cc-screen flex-1 px-5 pb-6 pt-5 lg:px-12 lg:pt-8">
+            <div className="mx-auto w-full lg:max-w-[1400px]">
+              <Outlet />
+            </div>
+          </main>
+          <BottomNav />
+        </div>
+      </div>
 
       <Toast />
       <DemoGuide />

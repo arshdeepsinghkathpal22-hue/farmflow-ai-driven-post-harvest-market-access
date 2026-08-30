@@ -169,3 +169,34 @@ artifacts/metrics.json   full per-class results and confusion matrices
 `export.py` copies the last two into `web/public/model/`, where the browser
 loads them. The exported graph is checked against PyTorch on the same input
 before shipping; they agree to within float noise.
+
+## Scaling the dataset (making the score move more)
+
+The score's spread is limited by the four coarse stages the model was trained
+on, not by the code. To make it move like a meter instead of a verdict, retrain
+with more data - `prepare.py` and `train.py` already accept extra class
+folders, so this is a data job, not a rewrite. Sources worth pulling (run
+locally; these need Kaggle/HF accounts):
+
+- **Kaggle - "Fruits fresh and rotten for classification"** (~13k images,
+  apples/bananas/oranges; useful for the fresh/spoiled boundary even across
+  crops).
+- **Kaggle - "Fresh and stale images of fruits and vegetables"** (~15k images,
+  includes tomato, capsicum, bitter gourd; directly relevant classes).
+- **VegNet** (already used here, CC BY) - re-download and keep the ageing
+  intermediate stages rather than collapsing them.
+- **Mendeley Data - vegetable quality grading sets** (search "tomato quality
+  grading dataset"; several graded 3-5 level sets exist, which is exactly what
+  turns a 4-class verdict into a finer scale).
+- **Hugging Face** - search `image-classification fruit freshness`; several
+  fine-tuned MobileNet/EfficientNet checkpoints exist. Prefer retraining our
+  MobileNetV3 head on the merged data over adopting a stranger's checkpoint:
+  ours ships at 4.4 MB and the metadata (`stageQuality`, `shelfLifeDays`)
+  stays under our control.
+
+Recipe: drop the new images into `data/<crop>/<stage>/`, add any new stage
+names to `prepare.py`'s STAGES, rerun `train.py` (~20 min on a laptop GPU,
+a few hours CPU), then `export.py` regenerates `produce.onnx` + `produce.json`
+and the app picks both up with no code change. Adding a 5th and 6th stage
+(e.g. `ripe`, `overripe`) is the single highest-value change: the
+probability-weighted score in `model.js` gets finer the more stages there are.

@@ -42,6 +42,13 @@ class Settings(BaseSettings):
 
     booking_confirm_window_minutes: int = 30
 
+    # data.gov.in API key for the Agmarknet daily mandi prices dataset.
+    # Empty by default: without it /api/prices/live answers 503 with a plain
+    # reason and the app falls back to its modelled series, which keeps the
+    # demo working in a hall with no key and no signal.
+    mandi_api_key: str = ""
+    mandi_resource_id: str = "9ef84268-d588-465a-a308-a864a43d0070"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

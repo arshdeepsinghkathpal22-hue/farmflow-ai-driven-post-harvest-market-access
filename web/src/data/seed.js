@@ -90,6 +90,9 @@ export const CURRENT_LOT = {
 export const STORAGES = [
   {
     id: 'ST-01',
+    // Schematic position, km-scaled from the farm. Comes from the data layer
+    // so a real deployment replaces it with the facility's registered location.
+    map: { x: 236, y: 96 },
     name: 'Kisan Cold Storage',
     nameHi: 'किसान कोल्ड स्टोरेज',
     distanceKm: 2.4,
@@ -106,6 +109,9 @@ export const STORAGES = [
   },
   {
     id: 'ST-02',
+    // Schematic position, km-scaled from the farm. Comes from the data layer
+    // so a real deployment replaces it with the facility's registered location.
+    map: { x: 318, y: 168 },
     name: 'Rampur Agro Hub',
     nameHi: 'रामपुर एग्रो हब',
     distanceKm: 4.1,
@@ -120,6 +126,9 @@ export const STORAGES = [
   },
   {
     id: 'ST-03',
+    // Schematic position, km-scaled from the farm. Comes from the data layer
+    // so a real deployment replaces it with the facility's registered location.
+    map: { x: 84, y: 58 },
     name: 'Green Valley Storage',
     nameHi: 'ग्रीन वैली स्टोरेज',
     distanceKm: 6.8,
@@ -134,6 +143,9 @@ export const STORAGES = [
   },
   {
     id: 'ST-04',
+    // Schematic position, km-scaled from the farm. Comes from the data layer
+    // so a real deployment replaces it with the facility's registered location.
+    map: { x: 128, y: 186 },
     name: 'Sharma Cold Storage',
     nameHi: 'शर्मा कोल्ड स्टोरेज',
     distanceKm: 3.2,
@@ -163,9 +175,9 @@ export const GROUP_POOL = {
   soloTransportCost: 600,
   storageId: 'ST-01',
   members: [
-    { id: 'm1', name: 'Harpreet', village: 'Green Acres Farm', qtyKg: 50 },
-    { id: 'm2', name: 'Anil', village: 'Sonalika Agro', qtyKg: 80 },
-    { id: 'm3', name: 'Sunita', village: 'Anand Orchards', qtyKg: 200 },
+    { id: 'm1', name: 'Harpreet', village: 'Green Acres Farm', qtyKg: 50, map: { x: 132, y: 74 } },
+    { id: 'm2', name: 'Anil', village: 'Sonalika Agro', qtyKg: 80, map: { x: 96, y: 128 } },
+    { id: 'm3', name: 'Sunita', village: 'Anand Orchards', qtyKg: 200, map: { x: 226, y: 176 } },
   ],
 }
 
@@ -240,8 +252,10 @@ export const OWNER = {
   optimalRange: [2, 4],
   revenueMonth: 120000,
   revenueExpected: 150000,
-  chamberSlots: 84,
-  chamberFilled: 69,
+  chambers: [
+    { id: 'A', slots: 84, filled: 69 },
+    { id: 'B', slots: 96, filled: 64 },
+  ],
   alerts: [
     {
       id: 'a1',
@@ -418,6 +432,19 @@ export const VOICE_SAMPLES = [
     pickup: 'Today evening',
     pickupHi: 'आज शाम',
   },
+]
+
+// Where the signed-in farmer's own plot sits on the schematic cluster map.
+export const FARM_POINT = { x: 178, y: 132 }
+
+/**
+ * Transport partners in the cluster. Positions are schematic like the
+ * storages'; `ratePerKm` and `baseFare` are what price a pickup job.
+ */
+export const TRANSPORTERS = [
+  { id: 'TR-01', name: 'Balwant Singh', vehicle: 'Tata Ace (750 kg)', ratePerKm: 22, baseFare: 180, rating: 4.8, map: { x: 200, y: 150 } },
+  { id: 'TR-02', name: 'Mohd. Irfan', vehicle: 'Mahindra Pickup (1.2 t)', ratePerKm: 28, baseFare: 220, rating: 4.6, map: { x: 110, y: 92 } },
+  { id: 'TR-03', name: 'Suresh Yadav', vehicle: 'Tractor trolley (2 t)', ratePerKm: 18, baseFare: 260, rating: 4.7, map: { x: 286, y: 120 } },
 ]
 
 export const getCrop = (id) => CROPS.find((c) => c.id === id) ?? CROPS[0]

@@ -21,8 +21,11 @@ WEB=$!
 echo
 echo "  API   http://localhost:8000/docs"
 echo "  App   http://localhost:5173"
-echo "  Login farmer / farmflow"
+echo "  Login farmer / farmflow · owner / farmflow · driver / farmflow"
 echo
+
+# Vite opens the browser itself; this covers terminals where it cannot.
+( sleep 4; command -v xdg-open >/dev/null && xdg-open http://localhost:5173 || open http://localhost:5173 || true ) >/dev/null 2>&1 &
 
 trap 'kill $API $WEB 2>/dev/null' EXIT
 wait

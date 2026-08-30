@@ -77,7 +77,7 @@ export default function Verify() {
   const Icon = tone?.icon
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5">
       <SectionTitle
         en="Verify a Receipt"
         hi="रसीद जाँचें"

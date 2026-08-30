@@ -80,9 +80,24 @@ for path in sorted(FIXTURES.glob("*.jpg")):
     crop = meta["crops"][int(crop_probs.argmax())]
     stage = meta["stages"][int(stage_probs.argmax())]
 
+    expected_quality = float(
+        sum(p * meta.get("stageQuality", {}).get(s, 50) for s, p in zip(meta["stages"], stage_probs))
+    )
+    expected_shelf = float(
+        sum(
+            p * meta.get("shelfLifeDays", {}).get(crop, {}).get(s, 0)
+            for s, p in zip(meta["stages"], stage_probs)
+        )
+    )
+
     predictions[name] = {
         "crop": crop,
         "stage": stage,
+        # The expectation over stages - what model.js now computes in the
+        # browser. Recorded here so the Node harness reconciles the very same
+        # numbers the app would.
+        "expectedFreshness": round(expected_quality, 1),
+        "expectedRemainingDays": round(expected_shelf, 1),
         "cropConfidence": round(float(crop_probs.max()) * 100),
         "stageConfidence": round(float(stage_probs.max()) * 100),
         "remainingDays": meta.get("shelfLifeDays", {}).get(crop, {}).get(stage),
@@ -94,6 +109,18 @@ for path in sorted(FIXTURES.glob("*.jpg")):
 
 (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 (OUT / "predictions.json").write_text(json.dumps(predictions, indent=2), encoding="utf-8")
+
+stub = f'''export async function classifyProduce() {{
+  const all = {json.dumps(predictions)}
+  return all[globalThis.__fixture] ?? null
+}}
+export function preloadModel() {{}}
+export function modelState() {{
+  return {{ ready: true, failed: false, reason: null, meta: null }}
+}}
+export const MODEL_CROP_TO_APP = {{ tomato: 'tomato', bell_pepper: 'capsicum' }}
+'''
+(OUT / "model-stub.mjs").write_text(stub, encoding="utf-8")
 
 print(f"prepared {len(manifest)} fixtures at {WORK_SIZE}px + model predictions")
 for name, p in predictions.items():

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CURRENT_LOT, FARMER, GROUP_POOL } from '../data/seed'
 import { DEFAULT_LANGUAGE, getLanguage } from '../i18n/languages'
-import { DEMO_CREDENTIALS } from '../demo'
+import { DEMO_CREDENTIALS, ROLE_CREDENTIALS } from '../demo'
 import { spoilage } from '../lib/ai'
 import { addDays } from '../lib/format'
 import { ApiError, api, reachable, setToken } from '../lib/api'
@@ -19,6 +19,13 @@ const emptyState = {
   bookings: [],
   joinedPools: [],
   purchases: [],
+  // Buyer cart: [{ lotId, kg }]. Orders: what checkout produced.
+  cart: [],
+  orders: [],
+  // Lots the farmer has listed for sale: [{ id, cropId, kg, pricePerKg, at }]
+  sales: [],
+  // Transporter decisions, keyed by job id: 'ACCEPTED' | 'DECLINED'
+  transportJobs: {},
   scans: [],
   seq: 9821,
   guideSeen: false,
@@ -222,7 +229,22 @@ export function AppStoreProvider({ children }) {
    * sync loop from pretending it has a server to talk to. A wrong password
    * against a live backend is a real failure and is reported as one.
    */
-  const signIn = useCallback(async (username, password, { backendUp } = {}) => {
+  const signIn = useCallback(async (username, password, { backendUp, role = 'farmer' } = {}) => {
+    // Owner and transporter consoles are device-local demo surfaces: their
+    // credentials are validated on the handset, the session says which role it
+    // carries, and nothing about the farmer's real backend path changes.
+    if (role !== 'farmer') {
+      const want = ROLE_CREDENTIALS[role]
+      if (want && username === want.username && password === want.password) {
+        const next = { mode: 'local', role, name: want.label, username }
+        saveSession(next)
+        setSession(next)
+        setToast({ message: `Signed in as ${want.label}`, tone: 'success' })
+        return { ok: true, mode: 'local', role }
+      }
+      return { ok: false, reason: `Those are not the ${role} demo credentials.` }
+    }
+
     // The login screen has already asked whether anything is listening. When
     // the answer was no, attempting it anyway just makes the farmer watch a
     // spinner count out a doomed connection - and on the deployed static build
@@ -235,6 +257,7 @@ export function AppStoreProvider({ children }) {
       setToken(out.token)
       const next = {
         mode: 'backend',
+        role: 'farmer',
         farmerId: out.farmer.id,
         name: out.farmer.name,
         username: out.farmer.username,
@@ -250,7 +273,7 @@ export function AppStoreProvider({ children }) {
         username === DEMO_CREDENTIALS.username &&
         password === DEMO_CREDENTIALS.password
       ) {
-        const next = { mode: 'local', farmerId: FARMER.id, name: FARMER.name, username }
+        const next = { mode: 'local', role: 'farmer', farmerId: FARMER.id, name: FARMER.name, username }
         saveSession(next)
         setSession(next)
         setToast({ message: 'Signed in on this device', tone: 'success' })
@@ -290,11 +313,28 @@ export function AppStoreProvider({ children }) {
         setState((prev) => (prev.guideSeen ? prev : { ...prev, guideSeen: true }))
       },
 
-      createBooking: ({ cropId, quantityKg, storageId, pickup, holdDays = 6, pooled = false }) => {
+      createBooking: ({
+        cropId,
+        quantityKg,
+        storageId,
+        pickup,
+        // Days from now the produce actually arrives: 0 today, 1 tomorrow,
+        // 2 day-after. The voice parser already knew this (`dayOffset`) and it
+        // was being thrown away - so a farmer who said "kal" got a receipt
+        // whose check-in date said today, and an expiry one day early.
+        pickupOffset = 0,
+        // The day id ('today' | 'tomorrow' | 'dayAfter') where one applies, so
+        // the bookings list can name the day in the farmer's own language
+        // instead of a frozen English label.
+        pickupDayId = null,
+        holdDays = 6,
+        pooled = false,
+      }) => {
         const seq = seqRef.current + 1
         seqRef.current = seq
 
-        const checkin = new Date()
+        const now = new Date()
+        const checkin = addDays(now, Math.min(60, Math.max(0, pickupOffset)))
         const { remaining } = spoilage(cropId, 0)
         const created = {
           id: `${BRAND.shortCode}-${seq}`,
@@ -305,6 +345,7 @@ export function AppStoreProvider({ children }) {
           quantityKg,
           storageId,
           pickup,
+          pickupDayId,
           pooled,
           holdDays,
           // Queued means "not yet acknowledged by anyone but this phone".
@@ -317,7 +358,7 @@ export function AppStoreProvider({ children }) {
             !onlineRef.current || sessionRef.current?.mode === 'backend'
               ? 'QUEUED'
               : 'CONFIRMED',
-          createdAt: checkin.toISOString(),
+          createdAt: now.toISOString(),
           checkinAt: checkin.toISOString(),
           expiryAt: addDays(checkin, remaining).toISOString(),
         }
@@ -359,6 +400,67 @@ export function AppStoreProvider({ children }) {
             ? prev
             : { ...prev, purchases: [...prev.purchases, lotId] },
         ),
+
+      /** Put a lot in the cart, or change its quantity if already there. */
+      addToCart: (lotId, kgStep) =>
+        setState((prev) => {
+          const existing = prev.cart.find((c) => c.lotId === lotId)
+          if (existing) {
+            return {
+              ...prev,
+              cart: prev.cart.map((c) => (c.lotId === lotId ? { ...c, kg: c.kg + kgStep } : c)),
+            }
+          }
+          return { ...prev, cart: [...prev.cart, { lotId, kg: kgStep }] }
+        }),
+
+      setCartKg: (lotId, kg) =>
+        setState((prev) => ({
+          ...prev,
+          cart:
+            kg <= 0
+              ? prev.cart.filter((c) => c.lotId !== lotId)
+              : prev.cart.map((c) => (c.lotId === lotId ? { ...c, kg } : c)),
+        })),
+
+      clearCart: () => setState((prev) => ({ ...prev, cart: [] })),
+
+      /** Turn the cart into an order. Returns the order so the screen can show it. */
+      checkoutCart: (items, totalRupees) => {
+        const order = {
+          id: `ORD-${Date.now().toString(36).toUpperCase()}`,
+          items,
+          totalRupees,
+          at: new Date().toISOString(),
+        }
+        setState((prev) => ({
+          ...prev,
+          cart: [],
+          orders: [order, ...prev.orders],
+          purchases: [...new Set([...prev.purchases, ...items.map((i) => i.lotId)])],
+        }))
+        return order
+      },
+
+      /** The farmer's own listing: how many kilograms, at today's price. */
+      recordSale: ({ cropId, kg, pricePerKg }) => {
+        const sale = {
+          id: `SL-${Date.now().toString(36).toUpperCase()}`,
+          cropId,
+          kg,
+          pricePerKg,
+          at: new Date().toISOString(),
+        }
+        setState((prev) => ({ ...prev, sales: [sale, ...prev.sales] }))
+        return sale
+      },
+
+      /** Transporter's accept / decline on a pickup job. */
+      setTransportJob: (jobId, status) =>
+        setState((prev) => ({
+          ...prev,
+          transportJobs: { ...prev.transportJobs, [jobId]: status },
+        })),
 
       resetDemo: () => {
         seqRef.current = emptyState.seq

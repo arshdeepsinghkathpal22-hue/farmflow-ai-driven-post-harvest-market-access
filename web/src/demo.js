@@ -16,3 +16,14 @@ export const DEMO_CREDENTIALS = {
   username: 'farmer',
   password: 'farmflow',
 }
+
+/**
+ * One printed account per role. The farmer pair is the same one the backend
+ * checks server-side; the owner and transporter consoles are device-local demo
+ * surfaces, so their pairs are validated on the handset and say so.
+ */
+export const ROLE_CREDENTIALS = {
+  farmer: { username: 'farmer', password: 'farmflow', label: 'Farmer', labelHi: 'किसान' },
+  owner: { username: 'owner', password: 'farmflow', label: 'Storage Owner', labelHi: 'गोदाम मालिक' },
+  transporter: { username: 'driver', password: 'farmflow', label: 'Transporter', labelHi: 'ट्रांसपोर्टर' },
+}

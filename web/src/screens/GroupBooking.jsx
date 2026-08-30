@@ -7,6 +7,8 @@ import { poolMath } from '../lib/ai'
 import { kg, rupee } from '../lib/format'
 import { Avatar, Bilingual, Card, Chip, ProgressBar, SectionTitle } from '../components/ui'
 import RouteMap from '../components/RouteMap'
+import ClusterMap from '../components/ClusterMap'
+import { FARM_POINT, STORAGES } from '../data/seed'
 
 export default function GroupBooking() {
   const { pool, farmer, hasJoinedPool, joinPool, leavePool, createBooking, notify, online } = useApp()
@@ -38,6 +40,7 @@ export default function GroupBooking() {
       quantityKg: math.yourKg,
       storageId: pool.storageId,
       pickup: pool.pickupLabel,
+      pickupOffset: 1,
       pooled: true,
       holdDays: 6,
     })
@@ -46,7 +49,7 @@ export default function GroupBooking() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-2xl space-y-5">
       <SectionTitle
         en="Join Group Booking"
         sub="Pool your produce with nearby farmers to unlock transport discounts."
@@ -54,6 +57,18 @@ export default function GroupBooking() {
 
       <Card accent="green" className="p-4">
         <RouteMap stops={stops} joined={hasJoinedPool} />
+
+        {/* The same pool on the cluster map: every member's position, the
+            farmer's own plot, and the facility the pallet is heading to. */}
+        <div className="mt-4">
+          <ClusterMap
+            title="Where the pool members are"
+            storages={STORAGES.filter((s) => s.id === pool.storageId)}
+            members={pool.members}
+            farm={hasJoinedPool ? FARM_POINT : null}
+            routeTo={pool.storageId}
+          />
+        </div>
 
         <ol className="mt-3 grid grid-cols-2 gap-2">
           {stops.map((m, i) => (

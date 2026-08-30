@@ -40,7 +40,7 @@ const ERRORS = {
   'not-allowed': 'Microphone permission was refused. Allow it in the address bar and try again.',
   'service-not-allowed': 'Speech recognition is blocked in this browser.',
   'audio-capture': 'No microphone was found.',
-  network: 'Speech recognition needs a network connection.',
+  network: 'Speech recognition needs Google\'s servers, which are unreachable right now. Your internet is on — try again, or type your booking below.',
   aborted: 'Listening stopped.',
   'no-speech': 'Nothing was heard. Try again, a little closer to the microphone.',
 }

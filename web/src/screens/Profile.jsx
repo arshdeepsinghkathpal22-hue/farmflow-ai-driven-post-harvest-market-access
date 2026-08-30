@@ -8,7 +8,6 @@ import {
   MapPin,
   Phone,
   RotateCcw,
-  ShieldCheck,
   Sprout,
 } from 'lucide-react'
 import { useApp } from '../store/context'
@@ -31,8 +30,8 @@ export default function Profile() {
   } = useApp()
 
   return (
-    <div className="space-y-5">
-      <SectionTitle en="Profile" hi="प्रोफ़ाइल" />
+    <div className="space-y-5 lg:grid lg:grid-cols-2 lg:items-start lg:gap-5 lg:space-y-0">
+      <div className="lg:col-span-2"><SectionTitle en="Profile" hi="प्रोफ़ाइल" /></div>
 
       <Card accent="green" className="p-5">
         <div className="flex items-center gap-4">
@@ -48,9 +47,6 @@ export default function Profile() {
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
-          <Chip tone="green" icon={ShieldCheck}>
-            Verified farmer
-          </Chip>
           <Chip tone="amber" icon={Sprout}>
             {farmer.landAcres} acres · {farmer.category}
           </Chip>
@@ -116,11 +112,11 @@ export default function Profile() {
       </Link>
 
       <Link
-        to="/owner"
+        to="/login"
         className="flex items-center gap-3 rounded-md bg-inverse-surface px-5 py-4 text-inverse-on-surface hover:bg-primary"
       >
         <LayoutDashboard size={22} strokeWidth={2.5} aria-hidden="true" />
-        <span className="flex-1 font-semibold">Open Storage Owner Dashboard</span>
+        <span className="flex-1 font-semibold">Owner & transporter consoles - sign in by role</span>
         <ChevronRight size={20} strokeWidth={2.5} aria-hidden="true" />
       </Link>
 
@@ -142,15 +138,11 @@ export default function Profile() {
             aria-checked={demoOffline}
             aria-label="Simulate no network"
             onClick={toggleDemoOffline}
-            className={`relative mt-0.5 h-8 w-14 shrink-0 rounded-full transition ${
-              demoOffline ? 'bg-secondary-container' : 'bg-surface-container-highest'
+            className={`mt-0.5 flex h-8 w-14 shrink-0 items-center rounded-full p-1 transition-colors ${
+              demoOffline ? 'justify-end bg-secondary-container' : 'justify-start bg-outline-variant'
             }`}
           >
-            <span
-              className={`absolute top-1 h-6 w-6 rounded-full bg-surface-container-lowest shadow-card transition-all ${
-                demoOffline ? 'left-7' : 'left-1'
-              }`}
-            />
+            <span className="h-6 w-6 rounded-full bg-white shadow-card" aria-hidden="true" />
           </button>
         </div>
       </Card>

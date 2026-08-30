@@ -18,7 +18,8 @@ import { decideForLot, decisionHeadline } from '../lib/decision'
 import { matchStorages } from '../lib/ai'
 import { api } from '../lib/api'
 import { kg, rupee } from '../lib/format'
-import { Bilingual, Card, ProgressBar, SectionTitle } from '../components/ui'
+import { Bilingual, Card, SectionTitle } from '../components/ui'
+import ScanFrame from '../components/ScanFrame'
 
 const TONE = {
   COLD_STORE: { accent: 'green', chip: 'green', icon: Snowflake, badge: 'bg-primary text-on-primary' },
@@ -89,6 +90,7 @@ export default function Freshness() {
       remainingDays,
       recommendation,
       uneven: scores.uneven,
+      regions: scores.regions ?? result.regions,
       corrected: cropId !== result.cropId,
     }
   }, [result, chosenCropId])
@@ -128,7 +130,13 @@ export default function Freshness() {
     const img = new Image()
     img.onload = async () => {
       try {
-        const analysis = await analyseProduceSmart(img)
+        // The floor is for the person watching, not the pipeline: the stages
+        // overlay needs a beat to be seen, and the analysis genuinely runs
+        // inside it - whichever finishes last ends the scan.
+        const [analysis] = await Promise.all([
+          analyseProduceSmart(img),
+          new Promise((resolve) => setTimeout(resolve, 1000)),
+        ])
         if (!analysis.ok) {
           setError(analysis.reason)
         } else {
@@ -184,6 +192,8 @@ export default function Freshness() {
       quantityKg,
       storageId: plan.storage.id,
       pickup: 'Tomorrow',
+      pickupOffset: 1,
+      pickupDayId: 'tomorrow',
       holdDays: Math.max(1, plan.decision.holdDays),
     })
     notify(online ? 'Booking confirmed / बुकिंग पक्की हुई' : 'Saved offline, will sync / ऑफ़लाइन सेव')
@@ -210,24 +220,34 @@ export default function Freshness() {
         accept="image/*"
         capture="environment"
         className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
+        onChange={(e) => {
+          // Clearing the value is what lets the *next* photo fire onChange.
+          // Android camera captures often reuse the same filename, and a file
+          // input whose value has not changed stays silent - which read as
+          // "the camera button works once and then dies".
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          handleFile(file)
+        }}
       />
       <input
         ref={uploadRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          e.target.value = ''
+          handleFile(file)
+        }}
       />
 
       {!result && (
-        <Card accent="blue" className="p-5">
+        <Card accent="blue" className="p-5 lg:max-w-xl">
           {preview && (
-            <img
-              src={preview}
-              alt="The produce being checked"
-              className="mb-4 max-h-56 w-full rounded-md object-cover"
-            />
+            <div className="mb-4">
+              <ScanFrame src={preview} alt="The produce being checked" busy={busy} />
+            </div>
           )}
 
           <div className="space-y-3">
@@ -265,10 +285,15 @@ export default function Freshness() {
       )}
 
       {result && (
-        <>
+        <div className="space-y-5 lg:grid lg:grid-cols-[1.05fr,0.95fr] lg:items-start lg:gap-6 lg:space-y-0">
           <Card accent={tone.accent} className="animate-slide-up overflow-hidden">
             {preview && (
-              <img src={preview} alt="The produce that was checked" className="h-44 w-full object-cover" />
+              <ScanFrame
+                src={preview}
+                alt="The produce that was checked, with the scored region map"
+                regions={view.regions}
+                className="rounded-b-none"
+              />
             )}
             <div className="p-5">
               <div className="flex items-start gap-4">
@@ -288,9 +313,24 @@ export default function Freshness() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
                     Freshness
                   </p>
-                  <p className="mt-1 text-3xl font-bold text-primary">{view.freshness}</p>
-                  <div className="mt-2">
-                    <ProgressBar value={view.freshness} />
+                  <div className="mt-1 flex items-center gap-3">
+                    <svg viewBox="0 0 64 64" className="h-16 w-16 shrink-0" role="img" aria-label={`Freshness ${view.freshness} out of 100`}>
+                      <circle cx="32" cy="32" r="26" fill="none" stroke="#e6e2d9" strokeWidth="7" />
+                      <circle
+                        cx="32"
+                        cy="32"
+                        r="26"
+                        fill="none"
+                        stroke={view.freshness >= 75 ? '#006030' : view.freshness >= 50 ? '#a3611a' : '#ba1a1a'}
+                        strokeWidth="7"
+                        strokeLinecap="round"
+                        strokeDasharray={2 * Math.PI * 26}
+                        strokeDashoffset={2 * Math.PI * 26 * (1 - view.freshness / 100)}
+                        transform="rotate(-90 32 32)"
+                        className="sf-ring"
+                      />
+                    </svg>
+                    <p className="text-3xl font-bold text-primary">{view.freshness}</p>
                   </div>
                 </div>
                 <div className="rounded-md bg-surface-container-low p-4">
@@ -386,15 +426,14 @@ export default function Freshness() {
                 </p>
               </div>
 
-              {view.uneven && (
-                <p className="mt-3 rounded-sm bg-secondary-fixed px-4 py-3 text-sm leading-relaxed text-on-secondary-container">
-                  This lot is <strong>uneven</strong> - one part of it scored much worse than the
-                  rest. Sort out the bad portion before storing, or the whole consignment will be
-                  graded down.
-                </p>
-              )}
             </div>
           </Card>
+
+          <div className="space-y-5">
+          <button type="button" className="cc-btn-outline w-full" onClick={reset}>
+            <RefreshCw size={18} strokeWidth={2.5} aria-hidden="true" />
+            <Bilingual en="Check another" hi="दूसरा जाँचें" />
+          </button>
 
           {/* The lot size turns a score into an amount, so it has to be asked. */}
           <Card accent="none" className="p-5">
@@ -422,28 +461,8 @@ export default function Freshness() {
 
           {plan && <DecisionCard plan={plan} lang={lang} onBook={bookRecommended} />}
 
-          {/* Show the working: a farmer told to sell today deserves the reason. */}
-          <Card accent="none" className="p-5">
-            <h2 className="text-lg font-semibold">What the app measured</h2>
-            <dl className="mt-3 divide-y divide-outline-variant/50 text-sm">
-              <Row label="Dark spots and blemishes" value={`${result.features.blemishPct}% of surface`} />
-              <Row label="Browning" value={`${result.features.browningPct}% of surface`} />
-              <Row label="Colour strength" value={`${result.features.saturationPct}%`} />
-              <Row label="Brightness" value={`${result.features.brightnessPct}%`} />
-              <Row label="Surface unevenness" value={result.features.texture.toFixed(3)} />
-            </dl>
-            <p className="mt-3 text-xs leading-relaxed text-on-surface-variant">
-              Colour, blemish coverage and surface texture are measured directly from the photo on
-              this device. A trained detector replaces this analysis in production without changing
-              anything you see here.
-            </p>
-          </Card>
-
-          <button type="button" className="cc-btn-outline w-full" onClick={reset}>
-            <RefreshCw size={18} strokeWidth={2.5} aria-hidden="true" />
-            <Bilingual en="Check another" hi="दूसरा जाँचें" />
-          </button>
-        </>
+          </div>
+        </div>
       )}
     </div>
   )
@@ -524,21 +543,8 @@ function DecisionCard({ plan, lang, onBook }) {
             stacked
           />
         </button>
-      ) : (
-        <p className="mt-4 rounded-sm bg-secondary-fixed px-4 py-3 text-sm leading-relaxed text-on-secondary-container">
-          Storing this lot would cost more than the price rise returns, so the app is not going to
-          sell you a booking you do not need.
-        </p>
-      )}
+      ) : null}
     </Card>
   )
 }
 
-function Row({ label, value }) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-2.5">
-      <dt className="text-on-surface-variant">{label}</dt>
-      <dd className="text-right font-semibold">{value}</dd>
-    </div>
-  )
-}

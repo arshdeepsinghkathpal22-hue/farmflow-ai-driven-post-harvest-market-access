@@ -15,6 +15,7 @@ import { useApp } from '../store/context'
 import { getCrop, getStorage } from '../data/seed'
 import { dateShort, kg, rupee } from '../lib/format'
 import { issue } from '../lib/receipt'
+import { downloadReceiptPng, shareReceipt } from '../lib/receiptImage'
 import { Bilingual, Card, Chip } from '../components/ui'
 
 export default function Receipt() {
@@ -66,7 +67,7 @@ export default function Receipt() {
   const estCost = Math.round(storage.pricePerKgDay * booking.quantityKg * booking.holdDays)
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-xl space-y-6">
       <h1 className="text-center text-xl font-bold text-primary">
         <Bilingual en="Digital Receipt" hi="डिजिटल रसीद" />
       </h1>
@@ -151,7 +152,17 @@ export default function Receipt() {
         <button
           type="button"
           className="cc-btn-primary w-full !py-5"
-          onClick={() => notify('Receipt saved to your phone')}
+          onClick={async () => {
+            const ok = await downloadReceiptPng({
+              booking,
+              crop,
+              storage,
+              farmerName: farmer.name,
+              qrDataUrl: qr,
+              verifyCode: seal?.qr,
+            })
+            notify(ok ? 'Receipt downloaded / रसीद डाउनलोड हुई' : 'Could not create the file', ok ? 'success' : 'error')
+          }}
         >
           <Download size={20} strokeWidth={2.5} aria-hidden="true" />
           <Bilingual en="Download" hi="डाउनलोड" stacked />
@@ -159,14 +170,26 @@ export default function Receipt() {
         <button
           type="button"
           className="cc-btn-outline w-full"
-          onClick={() => notify('Shared on WhatsApp')}
+          onClick={async () => {
+            const result = await shareReceipt({
+              booking,
+              crop,
+              storage,
+              farmerName: farmer.name,
+              qrDataUrl: qr,
+              verifyCode: seal?.qr,
+            })
+            if (result === 'downloaded') notify('No share sheet here - receipt downloaded instead')
+            else if (result === 'failed') notify('Could not create the file', 'error')
+          }}
         >
           <Share2 size={20} strokeWidth={2.5} aria-hidden="true" />
           <Bilingual en="WhatsApp Share" hi="व्हाट्सएप पर भेजें" stacked />
         </button>
         <p className="flex items-center justify-center gap-2 pt-1 text-center text-xs text-on-surface-variant">
           <Banknote size={14} strokeWidth={2.5} aria-hidden="true" />
-          Receipt can be pledged for a harvest loan under e-NWR rules.
+          Modelled on e-NWR warehouse receipts - production issuance would go through a
+          WDRA-registered repository, which is what makes a receipt pledgeable for a loan.
         </p>
       </div>
     </div>

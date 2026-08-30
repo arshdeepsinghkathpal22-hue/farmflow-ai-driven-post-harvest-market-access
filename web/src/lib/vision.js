@@ -527,7 +527,17 @@ function measure(pixels, width, height) {
   const discoloured = (p) =>
     hueDistance(p.h, litHue) > 12 || p.s < litSaturation * 0.75 || litSaturation < 0.12
 
-  const blemish = pixels.filter((p) => p.v < darkCut && discoloured(p)).length / pixels.length
+  // A lesion is dark *relative to the lit fruit* but it is still lit tissue.
+  // The near-black pixels below the floor are something else entirely: the
+  // crevices between fruits in a pile, which no single-fruit test photo ever
+  // had. Field photos of a full crate read up to a third of their surface as
+  // "blemish" through those gaps, tripped the contradiction rule, and let a
+  // shadow overrule a correct 87%-confident model. The floor sits just under
+  // the darkest genuine lesion in the reference set (v ≈ 0.14).
+  const DEEP_SHADOW = 0.12
+  const blemish =
+    pixels.filter((p) => p.v >= DEEP_SHADOW && p.v < darkCut && discoloured(p)).length /
+    pixels.length
 
   // Browning: the dull warm band, at low saturation and low brightness. These
   // bounds describe the appearance of oxidised plant tissue rather than any
@@ -745,8 +755,11 @@ function tiles(pixels, width, height, cropId, rows = 3, cols = 3) {
         (p) =>
           p.x >= c * cellW && p.x < (c + 1) * cellW && p.y >= r * cellH && p.y < (r + 1) * cellH,
       )
-      // A cell needs enough pixels for its statistics to mean anything.
-      if (cell.length < 60) continue
+      // A cell needs enough pixels for its statistics to mean anything - both
+      // in absolute terms and as a share of the cell. A corner tile holding a
+      // sliver of fruit and a lot of background used to become the "worst
+      // region" of a perfectly good lot and drag the whole score down.
+      if (cell.length < 60 || cell.length < cellW * cellH * 0.18) continue
       const stats = measure(cell, width, height)
       out.push({ row: r, col: c, count: cell.length, score: scoreQuality(stats, cropId) })
     }
@@ -859,6 +872,9 @@ export function analyseProduce(source, { expectedCropId = null, cropId: forcedCr
       remainingDays: Math.max(0.5, Math.round(c.shelfLifeDays * (freshnessC / 100) * 10) / 10),
       worstRegionScore: worstC,
       uneven: cells.length > 1 && overallC - worstC >= 15,
+      // The scored map itself, so the screen can draw what was measured
+      // instead of decorating the photograph with invented markers.
+      regions: cells.map(({ row, col, score }) => ({ row, col, score: Math.round(score) })),
     }
   }
 
@@ -891,6 +907,7 @@ export function analyseProduce(source, { expectedCropId = null, cropId: forcedCr
     lowConfidence: confidence < 45,
     uneven: chosen.uneven,
     worstRegionScore: chosen.worstRegionScore,
+    regions: chosen.regions,
     features: {
       hue: Math.round(stats.hue),
       saturationPct: Math.round(stats.saturation * 100),
@@ -985,9 +1002,14 @@ export async function analyseProduceSmart(source, options = {}) {
   const saysSound = prediction.stage === 'fresh'
 
   // Thresholds sit far apart on purpose. This fires on flat contradiction, not
-  // on the ordinary disagreement of two methods reading a marginal lot.
+  // on the ordinary disagreement of two methods reading a marginal lot - and
+  // the bar for overruling "fresh" rises with how sure the network is. Its
+  // spoiled recall is a measured 93%; the damage figure is a heuristic that
+  // provably over-fires on crowded field photos. Overruling the strong
+  // estimator on the word of the weak one needs more than a border case.
+  const soundBar = 25 + (prediction.stageConfidence ?? 0) / 4
   const contradiction =
-    (saysRuined && visibleDamage < 3) || (saysSound && visibleDamage > 25)
+    (saysRuined && visibleDamage < 3) || (saysSound && visibleDamage > soundBar)
 
   // A crop the app does not stock, or a hesitant answer, is not worth
   // overruling a measurement for.
@@ -1050,8 +1072,36 @@ export async function analyseProduceSmart(source, options = {}) {
    * band the network did not choose.
    */
   const damage = classical.features.blemishPct + classical.features.browningPct
-  const anchor = prediction.freshness ?? classical.freshness
-  const adjustment = Math.max(-18, Math.min(4, 4 - damage * 1.6))
+  // The probability-weighted expectation, not quality[argmax]: the winner's
+  // constant was why every clean photo of the same stage scored identically.
+  const stageAnchor =
+    prediction.expectedFreshness ?? prediction.freshness ?? classical.freshness
+  // The damage term alone made the score piecewise constant in practice:
+  // blemish and browning are near zero for *every* clean photo, so every clean
+  // photo of the same crop landed on the identical number - which read as
+  // "the score is fake". The classical index varies with what the pixels
+  // actually show (colour strength, texture, brightness), so it places the
+  // reading inside the stage's band: the network still chooses the band, the
+  // photograph decides where in it this particular lot sits.
+  const measured = classical.perCrop?.[appCrop]?.freshness ?? classical.freshness
+  // The measured index already contains the damage that the adjustment below
+  // charges for, so its pull fades as damage rises - otherwise a blemished lot
+  // is punished twice for the same spots. On a clean photo (damage near zero)
+  // the pull is at full strength, which is exactly where the constant-score
+  // problem lived.
+  const dampen = Math.max(0, 1 - damage / 12)
+  const pull = Math.max(-12, Math.min(12, (measured - stageAnchor) * 0.45)) * dampen
+  const anchor = Math.round(stageAnchor + pull)
+
+  // How much weight the pixel measurements carry against the network, as one
+  // dial: full-ish at the 55% deferral floor, a fraction at high certainty.
+  // The justification is symmetry - the network was shown the same crevices,
+  // stems and specular noise the heuristics trip over, and answered anyway.
+  // Field photos of full crates made the case: a 28% "blemish" reading that
+  // was actually the gaps between fruits was hammering a correct 87%-sure
+  // "fresh" by the full 18 points.
+  const pixelWeight = Math.min(0.6, Math.max(0.12, 1 - (prediction.stageConfidence ?? 55) / 125))
+  const adjustment = Math.max(-18, Math.min(4, 4 - damage * 1.6)) * pixelWeight
   let freshness = Math.max(3, Math.min(99, Math.round(anchor + adjustment)))
 
   // An uneven lot is judged by its worst part on this path too.
@@ -1061,7 +1111,12 @@ export async function analyseProduceSmart(source, options = {}) {
   // clean one: the damage term above is a whole frame average, and one bad
   // corner barely moves an average. The worst tile can only pull the reading
   // down, never lift it.
-  if (classical.uneven && typeof classical.worstRegionScore === 'number') {
+  // The worst-tile pull now needs corroboration on the model path: either the
+  // frame shows real damage overall, or the worst region is truly bad. Without
+  // this, a single tile of terracotta plate that colour-segmented as tomato
+  // was deciding the verdict on a flawless lot.
+  const worstCorroborated = damage * pixelWeight >= 4 || (classical.worstRegionScore ?? 100) < 35
+  if (classical.uneven && worstCorroborated && typeof classical.worstRegionScore === 'number') {
     const worst = Math.min(freshness, classical.worstRegionScore)
     const blended = freshness * 0.65 + worst * 0.35
     // Bounded, because a single shadowed tile can score near zero and would
@@ -1070,9 +1125,13 @@ export async function analyseProduceSmart(source, options = {}) {
     // deduction, not a different verdict invented by one dark corner.
     freshness = Math.max(3, Math.round(Math.max(blended, freshness - 20)))
   }
+  const shelfBase =
+    typeof prediction.expectedRemainingDays === 'number'
+      ? prediction.expectedRemainingDays
+      : prediction.remainingDays
   const remainingDays =
-    typeof prediction.remainingDays === 'number'
-      ? Math.max(0.5, Math.round(prediction.remainingDays * (freshness / 100) * 10) / 10)
+    typeof shelfBase === 'number'
+      ? Math.max(0.5, Math.round(shelfBase * (freshness / 100) * 10) / 10)
       : classical.remainingDays
 
   let recommendation

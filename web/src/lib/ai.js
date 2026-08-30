@@ -143,6 +143,14 @@ export function poolMath(pool, joined = false) {
 /**
  * Spoilage prediction - remaining shelf life once cold-chain time is counted.
  */
+/**
+ * One rule for shelf-life colour everywhere: two days or less is red,
+ * up to four is orange, above four is green.
+ */
+export function shelfTone(remainingDays) {
+  return remainingDays <= 2 ? 'red' : remainingDays <= 4 ? 'amber' : 'green'
+}
+
 export function spoilage(cropId, daysStored = 0) {
   const crop = getCrop(cropId)
   const remaining = Math.max(0, crop.shelfLifeDays - daysStored)

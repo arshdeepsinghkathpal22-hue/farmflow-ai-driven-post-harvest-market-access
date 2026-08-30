@@ -12,9 +12,16 @@
  * API as an error.
  */
 
+const isLocalHost = (h) =>
+  h === 'localhost' ||
+  h === '127.0.0.1' ||
+  h === '[::1]' ||
+  /^192\.168\.\d+\.\d+$/.test(h) ||
+  /^10\.\d+\.\d+\.\d+$/.test(h)
+
 const DEFAULT_BASE =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:8000'
+  typeof window !== 'undefined' && isLocalHost(window.location.hostname)
+    ? `http://${window.location.hostname}:8000`
     : ''
 
 // Overridable at build time for a deployed API; empty means local-only mode.
@@ -128,6 +135,13 @@ export const api = {
   // Short timeout on purpose: somebody is standing at a scanner holding a
   // receipt. If the server cannot answer quickly the offline check will, and
   // waiting six seconds to find that out is worse than the weaker answer.
+  /** Live Agmarknet prices via the backend proxy; throws where unconfigured. */
+  livePrices: (commodity, state = 'Uttar Pradesh') =>
+    request(
+      `/api/prices/live?commodity=${encodeURIComponent(commodity)}&state=${encodeURIComponent(state)}`,
+      { auth: false, timeout: 7000 },
+    ),
+
   verifyReceipt: (code) =>
     request('/api/receipts/verify', { method: 'POST', body: { code }, auth: false, timeout: 1500 }),
 

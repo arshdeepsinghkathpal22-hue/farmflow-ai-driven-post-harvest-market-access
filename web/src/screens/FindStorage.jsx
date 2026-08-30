@@ -5,6 +5,8 @@ import { CURRENT_LOT, getCrop } from '../data/seed'
 import { matchStorages } from '../lib/ai'
 import { kg, rupee, tempLabel } from '../lib/format'
 import { Bilingual, Card, Chip, ImageTile, SectionTitle } from '../components/ui'
+import ClusterMap from '../components/ClusterMap'
+import { FARM_POINT, STORAGES } from '../data/seed'
 import { useApp } from '../store/context'
 
 const SORTS = [
@@ -14,13 +16,16 @@ const SORTS = [
   { id: 'temp', label: 'Temperature', icon: Thermometer },
 ]
 
+const LOT_CHOICES = [50, 100, 120, 200, 450]
+
 export default function FindStorage() {
   const [sort, setSort] = useState('match')
+  const [mapPick, setMapPick] = useState(null)
+  const [quantityKg, setQuantityKg] = useState(120)
   const navigate = useNavigate()
   const submitting = useRef(false)
   const { createBooking, notify, online } = useApp()
 
-  const quantityKg = 120
   const crop = getCrop(CURRENT_LOT.cropId)
 
   const results = useMemo(() => {
@@ -30,7 +35,7 @@ export default function FindStorage() {
     if (sort === 'price') sorted.sort((a, b) => a.pricePerKgDay - b.pricePerKgDay)
     if (sort === 'temp') sorted.sort((a, b) => a.tempGap - b.tempGap)
     return sorted
-  }, [crop.id, sort])
+  }, [crop.id, sort, quantityKg])
 
   const topScore = Math.max(...results.map((r) => r.score))
 
@@ -48,6 +53,8 @@ export default function FindStorage() {
       quantityKg,
       storageId: storage.id,
       pickup: 'Tomorrow',
+      pickupOffset: 1,
+      pickupDayId: 'tomorrow',
       holdDays: 6,
     })
     notify(online ? 'Slot booked / स्लॉट बुक हुआ' : 'Saved offline, will sync / ऑफ़लाइन सेव')
@@ -55,7 +62,47 @@ export default function FindStorage() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 lg:grid lg:grid-cols-[0.9fr,1.1fr] lg:items-start lg:gap-6 lg:space-y-0">
+      {/* Laptop: the map and lot-size choice stay pinned on the left while the
+          results scroll on the right. Phone: the same pieces, stacked. */}
+      <div className="space-y-5 lg:sticky lg:top-24 lg:self-start">
+      {/* Where the facilities actually are, relative to the farm. Tapping a
+          pin highlights and scrolls to that facility's card below. */}
+      <ClusterMap
+        title="Cold storages near you"
+        storages={STORAGES}
+        farm={FARM_POINT}
+        highlightId={mapPick}
+        onSelectStorage={(id) => {
+          setMapPick(id)
+          document.getElementById(`storage-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }}
+      />
+
+      {/* How much is being stored decides which facilities fit and what they
+          cost - so it is chosen here, not assumed. */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">
+          <Bilingual en="Your lot size" hi="आपका लॉट" />
+        </p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {LOT_CHOICES.map((qty) => (
+            <button
+              key={qty}
+              type="button"
+              onClick={() => setQuantityKg(qty)}
+              className={`cc-chip !px-4 !py-2.5 text-sm font-semibold ${
+                quantityKg === qty ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface-variant'
+              }`}
+            >
+              {qty} kg
+            </button>
+          ))}
+        </div>
+      </div>
+      </div>
+
+      <div className="space-y-5">
       <SectionTitle
         en="Search Results"
         sub={`Cold storage near you for ${kg(quantityKg)} of ${crop.name.toLowerCase()}.`}
@@ -83,7 +130,7 @@ export default function FindStorage() {
         {results.map((storage) => {
           const isBest = storage.score === topScore
           return (
-            <li key={storage.id}>
+            <li key={storage.id} id={`storage-${storage.id}`} className={mapPick === storage.id ? 'rounded-md ring-2 ring-primary' : ''}>
               <Card accent={storage.acceptsLot ? 'blue' : 'amber'} className="overflow-hidden">
                 <ImageTile gradient={storage.gradient} glyph="🏬" height={132}>
                   {isBest && (
@@ -139,7 +186,7 @@ export default function FindStorage() {
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Chip tone="neutral">6-day cost ≈ {rupee(storage.estimatedCost)}</Chip>
-                    {storage.verified && <Chip tone="green" icon={BadgeCheck}>Verified</Chip>}
+
                   </div>
 
                   <button
@@ -156,6 +203,7 @@ export default function FindStorage() {
           )
         })}
       </ul>
+      </div>
     </div>
   )
 }

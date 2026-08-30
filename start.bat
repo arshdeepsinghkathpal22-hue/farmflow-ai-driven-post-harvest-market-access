@@ -26,5 +26,10 @@ start "FarmFlow Web" cmd /k "cd web && npm run dev"
 echo.
 echo   API   http://localhost:8000/docs
 echo   App   http://localhost:5173
-echo   Login farmer / farmflow
+echo   Login farmer / farmflow ^| owner / farmflow ^| driver / farmflow
 echo.
+
+REM Vite opens the browser itself once the dev server is up; this covers the
+REM case where the Web window was closed and reopened without it.
+timeout /t 6 /nobreak >nul
+start http://localhost:5173

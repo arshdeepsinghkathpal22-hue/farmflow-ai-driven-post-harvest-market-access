@@ -155,5 +155,71 @@ check(
   'phonetic',
 )
 
+console.log('\nSpoken calendar dates')
+{
+  // Expected offsets are computed, not hard-coded, so the tests do not rot as
+  // the calendar moves underneath them.
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const offsetTo = (monthIndex, dayNum, roll = 'year') => {
+    let t = new Date(today.getFullYear(), monthIndex, dayNum)
+    if (t < today)
+      t = roll === 'year'
+        ? new Date(today.getFullYear() + 1, monthIndex, dayNum)
+        : new Date(today.getFullYear(), monthIndex + 1, dayNum)
+    return Math.round((t - today) / 86400000)
+  }
+
+  const en = parseBookingIntent('Three crates of tomato on 26 september', 'en')
+  check('an English date books the right day', { day: en.day, offset: en.dayOffset }, { day: 'date', offset: offsetTo(8, 26) })
+  check('and the date number is not eaten as a quantity', en.quantity.quantityKg, 75)
+
+  const hi = parseBookingIntent('26 सितंबर को तीन क्रेट टमाटर', 'hi')
+  check('a Hindi date books the same day', { day: hi.day, offset: hi.dayOffset, kg: hi.quantity.quantityKg }, { day: 'date', offset: offsetTo(8, 26), kg: 75 })
+
+  const dev = parseBookingIntent('२६ सितंबर को दो बोरी आलू', 'hi')
+  check('Devanagari digits are read as digits', { day: dev.day, offset: dev.dayOffset }, { day: 'date', offset: offsetTo(8, 26) })
+
+  const pa = parseBookingIntent('ਦੋ ਬੋਰੀ ਆਲੂ 5 ਅਕਤੂਬਰ', 'pa')
+  check('a Punjabi date parses', { day: pa.day, offset: pa.dayOffset }, { day: 'date', offset: offsetTo(9, 5) })
+
+  const tarikh = parseBookingIntent('do bori aloo 15 tarikh', 'hi')
+  check('a bare tarikh lands this month or rolls to the next', { day: tarikh.day, offset: tarikh.dayOffset }, { day: 'date', offset: offsetTo(today.getMonth(), 15, 'month') })
+
+  const monthFirst = parseBookingIntent('august 30 one quintal onion', 'en')
+  check('month-first order works too', { day: monthFirst.day, kg: monthFirst.quantity.quantityKg }, { day: 'date', kg: 100 })
+
+  const chilli = parseBookingIntent('shimla mirch teen crate kal', 'hi')
+  check('"mirch" is a chilli, never the month of March', { crop: chilli.cropId, day: chilli.day }, { crop: 'capsicum', day: 'tomorrow' })
+}
+
+console.log('\nRelative pickup days ("X days from now")')
+{
+  const rel = (text, lang) => {
+    const r = parseBookingIntent(text, lang)
+    return r.ok ? { day: r.day, offset: r.dayOffset, kg: r.quantity.quantityKg } : { failed: r.missing }
+  }
+  check('English "four days from now"', rel('book three crates of tomato four days from now', 'en'), { day: 'date', offset: 4, kg: 75 })
+  check('Hindi "chaar din baad"', rel('chaar din baad teen crate tamatar', 'hi'), { day: 'date', offset: 4, kg: 75 })
+  check('Devanagari "चार दिन बाद"', rel('चार दिन बाद तीन क्रेट टमाटर', 'hi'), { day: 'date', offset: 4, kg: 75 })
+  check('Punjabi "ਚਾਰ ਦਿਨ ਬਾਅਦ"', rel('ਚਾਰ ਦਿਨ ਬਾਅਦ ਦੋ ਬੋਰੀ ਆਲੂ', 'pa'), { day: 'date', offset: 4, kg: 100 })
+  check('English "after 5 days"', rel('after 5 days two sacks of potato', 'en'), { day: 'date', offset: 5, kg: 100 })
+  check('Hindi "4 din me"', rel('do bori aloo 4 din me', 'hi'), { day: 'date', offset: 4, kg: 100 })
+  check('a word-number date: "chhabbis august"', (() => {
+    const r = parseBookingIntent('chhabbis august ko do bori aloo', 'hi')
+    return { day: r.day, label: r.dayLabelEn, kg: r.quantity.quantityKg }
+  })(), { day: 'date', label: '26 Aug', kg: 100 })
+  check('a bare "chaar din" without a marker is NOT a date', (() => {
+    const r = parseBookingIntent('chaar din teen crate tamatar', 'hi')
+    return r.day
+  })(), 'tomorrow')
+
+  const partial = parseBookingIntent('book the tomato cold storage for four days from now', 'en')
+  check('crop and day survive a missing quantity', { ok: partial.ok, missing: partial.missing, crop: partial.cropId, day: partial.day, offset: partial.dayOffset }, { ok: false, missing: ['quantity'], crop: 'tomato', day: 'date', offset: 4 })
+
+  const kal = parseBookingIntent('kal teen crate tamatar', 'hi')
+  check('every relative day resolves to a real date', typeof kal.dayDateShort === 'string' && /\d+ \w+/.test(kal.dayDateShort), true)
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 process.exit(failed ? 1 : 0)

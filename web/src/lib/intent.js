@@ -89,8 +89,17 @@ const NUMBER_WORDS = {
   18: ['eighteen', 'atharah', 'अठारह', 'ਅਠਾਰਾਂ'],
   19: ['nineteen', 'unnis', 'उन्नीस', 'ਉੱਨੀ'],
   20: ['twenty', 'bees', 'बीस', 'ਵੀਹ'],
+  21: ['twentyone', 'ikkis', 'इक्कीस', 'ਇੱਕੀ'],
+  22: ['twentytwo', 'bais', 'बाईस', 'ਬਾਈ'],
+  23: ['twentythree', 'teis', 'तेईस', 'ਤੇਈ'],
+  24: ['twentyfour', 'chaubis', 'चौबीस', 'ਚੌਵੀ'],
   25: ['twentyfive', 'pachees', 'pachchees', 'पच्चीस', 'ਪੰਝੀ'],
+  26: ['twentysix', 'chhabbis', 'chabbis', 'छब्बीस', 'ਛੱਬੀ'],
+  27: ['twentyseven', 'sattais', 'सत्ताईस', 'ਸਤਾਈ'],
+  28: ['twentyeight', 'atthais', 'अट्ठाईस', 'ਅਠਾਈ'],
+  29: ['twentynine', 'untis', 'उनतीस', 'ਉਨੱਤੀ'],
   30: ['thirty', 'tees', 'तीस', 'ਤੀਹ'],
+  31: ['thirtyone', 'ikattis', 'इकतीस', 'ਇਕੱਤੀ'],
   40: ['forty', 'chalees', 'चालीस', 'ਚਾਲੀ'],
   50: ['fifty', 'pachas', 'pachaas', 'पचास', 'ਪੰਜਾਹ'],
   60: ['sixty', 'saath', 'साठ', 'ਸੱਠ'],
@@ -130,8 +139,54 @@ const UNITS = [
 const DAYS = [
   { offset: 0, id: 'today', words: ['today', 'aaj', 'abhi', 'आज', 'अभी', 'ਅੱਜ', 'ਹੁਣੇ'] },
   { offset: 1, id: 'tomorrow', words: ['tomorrow', 'kal', 'kall', 'कल', 'ਕੱਲ੍ਹ', 'ਕੱਲ'] },
-  { offset: 2, id: 'dayAfter', words: ['parso', 'parson', 'parsoon', 'परसों', 'ਪਰਸੋਂ', 'day after'] },
+  { offset: 2, id: 'dayAfter', words: ['parso', 'parson', 'parsoon', 'परसों', 'परसो', 'ਪਰਸੋਂ', 'ਪਰਸੋ', 'day after'] },
 ]
+
+/**
+ * Calendar dates, in the words people actually say: "26 august",
+ * "26 अगस्त को", "15 tarikh". Month words are matched **exactly** - no
+ * phonetics, no edit distance - because the phonetic key of "march" is the
+ * phonetic key of "mirch" (chilli), and a fuzzy month matcher would eat the
+ * crop out of "shimla mirch".
+ */
+const MONTHS = [
+  ['january', 'jan', 'जनवरी', 'ਜਨਵਰੀ', 'janvari'],
+  ['february', 'feb', 'फरवरी', 'फ़रवरी', 'ਫਰਵਰੀ', 'farvari'],
+  ['march', 'मार्च', 'ਮਾਰਚ'],
+  ['april', 'अप्रैल', 'ਅਪ੍ਰੈਲ', 'aprail'],
+  ['may', 'मई', 'ਮਈ'],
+  ['june', 'जून', 'ਜੂਨ'],
+  ['july', 'जुलाई', 'ਜੁਲਾਈ', 'julai'],
+  ['august', 'aug', 'अगस्त', 'ਅਗਸਤ', 'agast'],
+  ['september', 'sep', 'sept', 'सितंबर', 'सितम्बर', 'ਸਤੰਬਰ', 'sitambar'],
+  ['october', 'oct', 'अक्टूबर', 'अक्तूबर', 'ਅਕਤੂਬਰ', 'aktubar'],
+  ['november', 'nov', 'नवंबर', 'नवम्बर', 'ਨਵੰਬਰ', 'navambar'],
+  ['december', 'dec', 'दिसंबर', 'दिसम्बर', 'ਦਸੰਬਰ', 'disambar'],
+]
+
+/** "15 tarikh" - a bare day of the month, this month or the next. */
+const TARIKH_WORDS = ['tarikh', 'tareekh', 'tarik', 'तारीख', 'तारीख़', 'ਤਾਰੀਖ', 'ਤਰੀਕ']
+
+/** "chaar din baad" / "four days from now" / "after 4 days". */
+const DIN_WORDS = ['din', 'dino', 'dinon', 'दिन', 'दिनों', 'ਦਿਨ', 'ਦਿਨਾਂ', 'day', 'days']
+const AFTER_MARKERS = ['baad', 'bad', 'बाद', 'ਬਾਅਦ', 'later', 'me', 'mein', 'में', 'ਵਿੱਚ']
+const BEFORE_MARKERS = ['after', 'in']
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Today plus `offset` days, as '27 Aug' and as ISO - for showing what a relative day resolves to. */
+function resolvedDate(offset) {
+  const now = new Date()
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset)
+}
+function shortDate(offset) {
+  const d = resolvedDate(offset)
+  return `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`
+}
+function resolvedISO(offset) {
+  const d = resolvedDate(offset)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 const DAY_LABELS = {
   today: { en: 'Today', hi: 'आज', pa: 'ਅੱਜ' },
@@ -145,9 +200,12 @@ const CONJUNCTIONS = ['aur', 'और', 'ਅਤੇ', 'and', 'plus', 'ate', 'tey']
 /* ── Text handling ────────────────────────────────────────────────────────── */
 
 /** Lower-case, collapse whitespace, and strip punctuation the recogniser adds. */
+const INDIC_DIGITS = { '०': '0', '१': '1', '२': '2', '३': '3', '४': '4', '५': '5', '६': '6', '७': '7', '८': '8', '९': '9', '੦': '0', '੧': '1', '੨': '2', '੩': '3', '੪': '4', '੫': '5', '੬': '6', '੭': '7', '੮': '8', '੯': '9' }
+
 function normalise(text) {
   return ` ${String(text ?? '')
     .toLowerCase()
+    .replace(/[०-९੦-੯]/g, (d) => INDIC_DIGITS[d] ?? d)
     .replace(/[.,!?;:()"']/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()} `
@@ -315,6 +373,135 @@ function findWord(tokens, words, skip) {
 
 /* ── Field detection ──────────────────────────────────────────────────────── */
 
+/** Exact token (or joined-pair) match only - the safe mode for closed lists. */
+function exactWord(tokens, words, skip) {
+  const grams = candidates(tokens, skip)
+  for (const raw of words) {
+    const needle = raw.toLowerCase().replace(/\s+/g, '')
+    const hit = grams.find((g) => g.text === needle)
+    if (hit) return { word: raw, index: hit.index, span: hit.span, how: 'exact', distance: 0 }
+  }
+  return null
+}
+
+/** The value of a token as a day-of-month: a digit string or a number word. */
+function dayOfMonthValue(token) {
+  if (/^\d{1,2}$/.test(token)) {
+    const n = Number(token)
+    return n >= 1 && n <= 31 ? n : null
+  }
+  for (const [value, words] of Object.entries(NUMBER_WORDS)) {
+    const n = Number(value)
+    if (n < 1 || n > 31) continue
+    if (words.some((w) => w.toLowerCase() === token)) return n
+  }
+  return null
+}
+
+/**
+ * A spoken calendar date: "26 august", "august 26", "26 tarikh".
+ *
+ * Runs before the number step on purpose, so the 26 in "26 august" is claimed
+ * as a date and never mistaken for a quantity. Dates that have already passed
+ * roll forward - to next year for a named month, to next month for a bare
+ * tarikh - because nobody books cold storage for last Tuesday. Month words are
+ * matched exactly, never phonetically: the consonant skeleton of "march" is
+ * the skeleton of "mirch", and a fuzzy month would eat the chilli.
+ */
+function findSpokenDate(tokens, used) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const build = (dayNum, monthIndex, rollBy) => {
+    let target = new Date(today.getFullYear(), monthIndex, dayNum)
+    // new Date(2026, 1, 31) silently becomes March; that is a misheard date,
+    // not a booking.
+    if (target.getDate() !== dayNum) return null
+    if (target < today) {
+      target =
+        rollBy === 'year'
+          ? new Date(today.getFullYear() + 1, monthIndex, dayNum)
+          : new Date(today.getFullYear(), monthIndex + 1, dayNum)
+      if (target.getDate() !== dayNum) return null
+    }
+    const offset = Math.round((target - today) / 86400000)
+    return {
+      id: 'date',
+      offset,
+      dateISO: `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`,
+      label: `${dayNum} ${MONTH_SHORT[target.getMonth()]}`,
+    }
+  }
+
+  const neighbourDay = (hit) => {
+    for (const i of [hit.index - 1, hit.index + hit.span]) {
+      if (i < 0 || i >= tokens.length || used.has(i)) continue
+      const value = dayOfMonthValue(tokens[i])
+      if (value) return { value, index: i }
+    }
+    return null
+  }
+
+  for (let m = 0; m < MONTHS.length; m += 1) {
+    const hit = exactWord(tokens, MONTHS[m], used)
+    if (!hit) continue
+    const dayNum = neighbourDay(hit)
+    if (!dayNum) continue
+    const day = build(dayNum.value, m, 'year')
+    if (!day) continue
+    return { day, claims: [hit, { index: dayNum.index, span: 1 }] }
+  }
+
+  const tarikh = exactWord(tokens, TARIKH_WORDS, used)
+  if (tarikh) {
+    const dayNum = neighbourDay(tarikh)
+    if (dayNum) {
+      const day = build(dayNum.value, today.getMonth(), 'month')
+      if (day) return { day, claims: [tarikh, { index: dayNum.index, span: 1 }] }
+    }
+  }
+
+  // Relative: a count of days from now. The number must sit right before the
+  // day-word, and there must be an explicit "from now" marker on one side -
+  // "baad", "after", "from now" - because a bare "chaar din" in a booking
+  // sentence is just as likely to be a storage duration, and guessing which
+  // was meant is how the wrong date gets booked.
+  const fromOffset = (offset) => {
+    const target = new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset)
+    return {
+      id: 'date',
+      offset,
+      dateISO: `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`,
+      label: `${target.getDate()} ${MONTH_SHORT[target.getMonth()]}`,
+    }
+  }
+
+  for (let i = 1; i < tokens.length; i += 1) {
+    if (used.has(i) || !DIN_WORDS.includes(tokens[i])) continue
+    if (used.has(i - 1)) continue
+    const n = dayOfMonthValue(tokens[i - 1]) ?? (/^\d{1,2}$/.test(tokens[i - 1]) ? Number(tokens[i - 1]) : null)
+    if (!n || n < 1 || n > 60) continue
+
+    const claims = [{ index: i - 1, span: 1 }, { index: i, span: 1 }]
+    let marked = false
+    if (i + 1 < tokens.length && AFTER_MARKERS.includes(tokens[i + 1])) {
+      claims.push({ index: i + 1, span: 1 })
+      marked = true
+    } else if (tokens[i + 1] === 'from' && tokens[i + 2] === 'now') {
+      claims.push({ index: i + 1, span: 2 })
+      marked = true
+    } else if (i - 2 >= 0 && BEFORE_MARKERS.includes(tokens[i - 2]) && !used.has(i - 2)) {
+      claims.push({ index: i - 2, span: 1 })
+      marked = true
+    }
+    if (!marked) continue
+
+    return { day: fromOffset(n), claims }
+  }
+
+  return null
+}
+
 /**
  * Read one clause, in precedence order, consuming tokens as it goes.
  *
@@ -340,14 +527,33 @@ function analyseClause(text) {
     return hit
   }
 
-  // 1 · Day.
+  // 1 · Day. A spoken calendar date is checked first - its number must be
+  // claimed before the quantity step could mistake it for a lot size. Then
+  // the relative days, most specific first: the English "day after tomorrow"
+  // contains the word "tomorrow", so scanning today-then-tomorrow read it as
+  // tomorrow every time; the multi-token phrase is checked before any single
+  // word, and the single words farthest-offset first for the same reason.
   let day = null
-  for (const d of DAYS) {
-    const hit = findWord(tokens, d.words, used)
-    if (hit) {
-      claim(hit)
-      day = d
-      break
+  const spokenDate = findSpokenDate(tokens, used)
+  if (spokenDate) {
+    spokenDate.claims.forEach(claim)
+    day = spokenDate.day
+  }
+  for (let i = 0; !day && i < tokens.length - 1; i += 1) {
+    if (used.has(i) || tokens[i] !== 'day' || tokens[i + 1] !== 'after') continue
+    const span = tokens[i + 2] === 'tomorrow' ? 3 : 2
+    claim({ index: i, span })
+    day = DAYS.find((d) => d.id === 'dayAfter')
+    break
+  }
+  if (!day) {
+    for (const d of [...DAYS].sort((a, b) => b.offset - a.offset)) {
+      const hit = findWord(tokens, d.words, used)
+      if (hit) {
+        claim(hit)
+        day = d
+        break
+      }
     }
   }
 
@@ -543,8 +749,12 @@ function parseClause(text, lang, fallbackDay) {
     quantity,
     day: day.id,
     dayOffset: day.offset,
-    dayLabel: DAY_LABELS[day.id][lang] ?? DAY_LABELS[day.id].en,
-    dayLabelEn: DAY_LABELS[day.id].en,
+    dayDate: day.dateISO ?? resolvedISO(day.offset),
+    // "kal" is what was heard; "27 Aug" is what it means. Both are returned so
+    // the screen can show the resolved date next to the spoken word.
+    dayDateShort: day.id === 'date' ? day.label : shortDate(day.offset),
+    dayLabel: day.id === 'date' ? day.label : (DAY_LABELS[day.id][lang] ?? DAY_LABELS[day.id].en),
+    dayLabelEn: day.id === 'date' ? day.label : DAY_LABELS[day.id].en,
   }
 }
 
@@ -648,18 +858,21 @@ export const EXAMPLES = {
     'Eight sacks of potato day after',
     '50 kg onion today',
     'Three crates of tomato and two sacks of potato tomorrow',
+    'Two sacks of potato on 26 september',
   ],
   hi: [
     'कल तीन क्रेट टमाटर',
     'परसों आठ बोरी आलू',
     'आज 50 किलो प्याज़',
     'कल तीन क्रेट टमाटर और दो बोरी आलू',
+    '26 सितंबर को दो बोरी आलू',
   ],
   pa: [
     'ਕੱਲ੍ਹ ਤਿੰਨ ਕਰੇਟ ਟਮਾਟਰ',
     'ਪਰਸੋਂ ਅੱਠ ਬੋਰੀ ਆਲੂ',
     'ਅੱਜ 50 ਕਿੱਲੋ ਪਿਆਜ਼',
     'ਕੱਲ੍ਹ ਤਿੰਨ ਕਰੇਟ ਟਮਾਟਰ ਅਤੇ ਦੋ ਬੋਰੀ ਆਲੂ',
+    '26 ਸਤੰਬਰ ਨੂੰ ਦੋ ਬੋਰੀ ਆਲੂ',
   ],
 }
 

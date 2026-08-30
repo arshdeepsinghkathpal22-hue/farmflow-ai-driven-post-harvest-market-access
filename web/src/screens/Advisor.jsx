@@ -1,16 +1,20 @@
 import { useState } from 'react'
+import { api } from '../lib/api'
 import { useNavigate } from 'react-router-dom'
-import { BadgeCheck, Banknote, Lightbulb, Sun } from 'lucide-react'
+import { Banknote, Lightbulb, Sun } from 'lucide-react'
 import { CROPS, CURRENT_LOT, getCrop } from '../data/seed'
 import { sellOrStore, spoilage } from '../lib/ai'
 import { kg, rupee } from '../lib/format'
 import { BarChart, Bilingual, Card, Chip, SectionTitle } from '../components/ui'
+import SellSheet from '../components/SellSheet'
 import { useApp } from '../store/context'
 
 export default function Advisor() {
   const [cropId, setCropId] = useState(CURRENT_LOT.cropId)
+  const [selling, setSelling] = useState(false)
+  const [live, setLive] = useState(null) // null | 'loading' | {records} | {error}
   const navigate = useNavigate()
-  const { notify } = useApp()
+  const { notify, recordSale } = useApp()
 
   const crop = getCrop(cropId)
   const quantityKg = CURRENT_LOT.quantityKg
@@ -49,6 +53,91 @@ export default function Advisor() {
         ))}
       </div>
 
+      <div className="space-y-6 lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:space-y-0">
+        <div className="space-y-6">
+      <Card accent="amber" className="p-5 text-center">
+        <span className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-surface-container-high text-5xl" aria-hidden="true">
+          {crop.emoji}
+        </span>
+        <h2 className="mt-4 text-xl font-bold">Your {crop.plural}</h2>
+        <p className="text-sm text-on-surface-variant">
+          Batch ID: {CURRENT_LOT.batchId} • {kg(quantityKg)}
+        </p>
+
+        <div className="mt-4 flex justify-center">
+          <Chip tone={decay.urgency === 'ok' ? 'neutral' : 'red'} icon={Sun}>
+            Stays fresh for {decay.remaining} days
+          </Chip>
+        </div>
+
+        {/* Storing starts from Home's "Store Now"; this screen's own action
+            is the sale it prices. */}
+        <div className="mt-5 space-y-3">
+          <button
+            type="button"
+            className={`w-full ${isStore ? 'cc-btn-amber' : 'cc-btn-primary !py-5'}`}
+            onClick={() => setSelling(true)}
+          >
+            <Bilingual en="Sell Now" hi="अभी बेचें" stacked />
+          </button>
+
+          {/* The sale finally asks the one number it needs: how many kilograms. */}
+          {selling && (
+            <SellSheet
+              cropId={cropId}
+              maxKg={quantityKg}
+              onClose={() => setSelling(false)}
+              onConfirm={({ kg: soldKg, pricePerKg }) => {
+                recordSale({ cropId, kg: soldKg, pricePerKg })
+                setSelling(false)
+                notify(`Listed ${soldKg} kg for sale / बिक्री सूची में`)
+                navigate('/marketplace')
+              }}
+            />
+          )}
+        </div>
+      </Card>
+      <Card accent={isStore ? 'green' : 'amber'} className="p-5">
+        <div className="flex gap-4">
+          <span
+            className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${
+              isStore ? 'bg-primary text-on-primary' : 'bg-secondary-container text-on-secondary-container'
+            }`}
+          >
+            <Lightbulb size={24} strokeWidth={2.5} aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold">AI Recommendation</h2>
+            <p className="mt-1.5 text-base leading-relaxed">
+              {isStore ? (
+                <>
+                  <strong className="text-primary">STORE for {advice.holdDays} days</strong> - expected price{' '}
+                  {advice.pctChange >= 0 ? '+' : ''}
+                  {advice.pctChange.toFixed(0)}% ({rupee(advice.todayPrice)} →{' '}
+                  {rupee(advice.peakPrice, { decimals: 1 })}/kg)
+                </>
+              ) : (
+                <>
+                  <strong className="text-secondary">SELL NOW</strong> - prices are falling this week (
+                  {rupee(advice.todayPrice)} → {rupee(advice.series[6], { decimals: 1 })}/kg). Storing
+                  costs more than it earns.
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {isStore && (
+            <Chip tone="green" icon={Banknote}>
+              +{rupee(advice.expectedProfit)} at sample prices
+            </Chip>
+          )}
+        </div>
+      </Card>
+
+        </div>
+        <div className="space-y-6">
       <Card accent="blue" className="p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -102,82 +191,53 @@ export default function Advisor() {
         </p>
       </Card>
 
-      <Card accent={isStore ? 'green' : 'amber'} className="p-5">
-        <div className="flex gap-4">
-          <span
-            className={`grid h-12 w-12 shrink-0 place-items-center rounded-full ${
-              isStore ? 'bg-primary text-on-primary' : 'bg-secondary-container text-on-secondary-container'
-            }`}
-          >
-            <Lightbulb size={24} strokeWidth={2.5} aria-hidden="true" />
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-lg font-semibold">AI Recommendation</h2>
-            <p className="mt-1.5 text-base leading-relaxed">
-              {isStore ? (
-                <>
-                  <strong className="text-primary">STORE for {advice.holdDays} days</strong> - expected price{' '}
-                  {advice.pctChange >= 0 ? '+' : ''}
-                  {advice.pctChange.toFixed(0)}% ({rupee(advice.todayPrice)} →{' '}
-                  {rupee(advice.peakPrice, { decimals: 1 })}/kg)
-                </>
-              ) : (
-                <>
-                  <strong className="text-secondary">SELL NOW</strong> - prices are falling this week (
-                  {rupee(advice.todayPrice)} → {rupee(advice.series[6], { decimals: 1 })}/kg). Storing
-                  costs more than it earns.
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Chip icon={BadgeCheck}>Confidence: {advice.confidence}%</Chip>
-          {isStore && (
-            <Chip tone="green" icon={Banknote}>
-              +{rupee(advice.expectedProfit)} expected profit
-            </Chip>
-          )}
-        </div>
-      </Card>
-
-      <Card accent="amber" className="p-5 text-center">
-        <span className="mx-auto grid h-24 w-24 place-items-center rounded-full bg-surface-container-high text-5xl" aria-hidden="true">
-          {crop.emoji}
-        </span>
-        <h2 className="mt-4 text-xl font-bold">Your {crop.plural}</h2>
-        <p className="text-sm text-on-surface-variant">
-          Batch ID: {CURRENT_LOT.batchId} • {kg(quantityKg)}
-        </p>
-
-        <div className="mt-4 flex justify-center">
-          <Chip tone={decay.urgency === 'ok' ? 'neutral' : 'red'} icon={Sun}>
-            Stays fresh for {decay.remaining} days
-          </Chip>
-        </div>
-
-        {/* The recommended action always takes the primary button. */}
-        <div className="mt-5 space-y-3">
+      {/* Live Agmarknet, on demand. Fetched through the backend proxy because
+          data.gov.in has no CORS and the key belongs in the environment, not
+          the bundle. Where the proxy is not configured it says so - the
+          modelled series below keeps working either way. */}
+      <Card accent="none" className="p-4">
+        {live === null && (
           <button
             type="button"
-            className={`w-full ${isStore ? 'cc-btn-primary !py-5' : 'cc-btn-outline'}`}
-            onClick={() => navigate('/storage')}
-          >
-            <Bilingual en="Store Now" hi="स्टोर करें" stacked />
-          </button>
-          <button
-            type="button"
-            className={`w-full ${isStore ? 'cc-btn-amber' : 'cc-btn-primary !py-5'}`}
-            onClick={() => {
-              notify('Listed on the buyer marketplace')
-              navigate('/marketplace')
+            className="cc-btn-outline w-full"
+            onClick={async () => {
+              setLive('loading')
+              try {
+                const out = await api.livePrices(crop.name)
+                setLive(out.records?.length ? out : { error: 'No mandi rows returned today.' })
+              } catch (error) {
+                setLive({ error: error?.detail || 'Live prices need the backend with a data.gov.in key.' })
+              }
             }}
           >
-            <Bilingual en="Sell Now" hi="अभी बेचें" stacked />
+            <Bilingual en="Fetch live mandi price (Agmarknet)" hi="लाइव मंडी भाव देखें" />
           </button>
-        </div>
+        )}
+        {live === 'loading' && <p className="text-center text-sm text-on-surface-variant">Asking Agmarknet…</p>}
+        {live?.error && (
+          <p className="text-sm leading-relaxed text-on-surface-variant">
+            {live.error} The forecast below runs on the app's own modelled series, which works offline.
+          </p>
+        )}
+        {live?.records && (
+          <div>
+            <p className="text-sm font-semibold">Live mandi prices · {live.source}</p>
+            <ul className="mt-2 space-y-1 text-sm">
+              {live.records.slice(0, 4).map((r, i) => (
+                <li key={i} className="flex items-center justify-between gap-3">
+                  <span className="truncate text-on-surface-variant">
+                    {r.market}, {r.district} · {r.arrival_date}
+                  </span>
+                  <span className="shrink-0 font-bold text-primary">{rupee(r.modal_price_per_kg, { decimals: 2 })}/kg</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </Card>
+
+        </div>
+      </div>
     </div>
   )
 }

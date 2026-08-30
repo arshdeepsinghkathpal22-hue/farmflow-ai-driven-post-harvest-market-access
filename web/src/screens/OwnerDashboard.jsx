@@ -6,7 +6,6 @@ import {
   Banknote,
   BarChart3,
   Bell,
-  Check,
   Clock,
   IndianRupee,
   LayoutGrid,
@@ -32,7 +31,7 @@ import {
   getStorage,
 } from '../data/seed'
 import { useApp } from '../store/context'
-import { spoilage } from '../lib/ai'
+import { shelfTone, spoilage } from '../lib/ai'
 import { kg, rupee, rupeeCompact, tempLabel } from '../lib/format'
 import { Avatar, BarChart, Card, Chip, ProgressBar } from '../components/ui'
 import BRAND from '../brand'
@@ -104,7 +103,7 @@ export default function OwnerDashboard() {
 
   return (
     <div className="min-h-screen bg-surface lg:flex">
-      <aside className="border-b border-outline-variant/40 bg-surface-container-low px-5 py-5 lg:min-h-screen lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r">
+      <aside className="min-w-0 border-b border-outline-variant/40 bg-surface-container-low px-5 py-5 lg:min-h-screen lg:w-72 lg:shrink-0 lg:border-b-0 lg:border-r">
         <div className="flex items-center gap-3">
           <Avatar name={OWNER.ownerName} size={48} highlight />
           <div className="min-w-0">
@@ -112,12 +111,9 @@ export default function OwnerDashboard() {
             <p className="truncate text-sm text-on-surface-variant">{BRAND.name} Pro</p>
           </div>
         </div>
-        <Chip tone="green" className="mt-3">
-          Verified Facility
-        </Chip>
 
         <nav className="mt-6" aria-label="Dashboard sections">
-          <ul className="flex gap-2 overflow-x-auto lg:flex-col lg:gap-1 lg:overflow-visible">
+          <ul className="flex max-w-full gap-2 overflow-x-auto lg:flex-col lg:gap-1 lg:overflow-visible">
             {SECTIONS.map(({ id, label, hi, icon: Icon }) => (
               <li key={id} className="shrink-0 lg:shrink">
                 <button
@@ -141,15 +137,22 @@ export default function OwnerDashboard() {
         </nav>
 
         <Link
-          to="/"
+          to="/login"
           className="mt-8 hidden items-center gap-2 rounded-full px-4 py-3 text-sm font-semibold text-primary hover:bg-primary/5 lg:flex"
         >
           <ArrowLeft size={18} strokeWidth={2.5} aria-hidden="true" />
-          Back to Farmer App
+          Back to sign in / switch role
         </Link>
       </aside>
 
       <main className="flex-1 px-5 py-6 lg:px-10 lg:py-8">
+        <Link
+          to="/login"
+          className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary lg:hidden"
+        >
+          <ArrowLeft size={16} strokeWidth={2.5} aria-hidden="true" />
+          Sign in / switch role
+        </Link>
         <header className="mb-6">
           <h1 className="text-3xl font-bold tracking-tight lg:text-4xl">{section.title}</h1>
           <p className="mt-1 text-base text-on-surface-variant">
@@ -165,11 +168,11 @@ export default function OwnerDashboard() {
         {active === 'settings' && <FacilitySettings />}
 
         <Link
-          to="/"
+          to="/login"
           className="mt-6 inline-flex items-center gap-2 rounded-full px-5 py-3 text-sm font-semibold text-primary hover:bg-primary/5 lg:hidden"
         >
           <ArrowLeft size={18} strokeWidth={2.5} aria-hidden="true" />
-          Back to Farmer App
+          Back to sign in / switch role
         </Link>
       </main>
     </div>
@@ -202,8 +205,18 @@ function Occupancy() {
   )
 
   const incoming = [...sessionBookings, ...OWNER.incoming]
-  const filled = OWNER.chamberFilled
-  const slots = Array.from({ length: OWNER.chamberSlots }, (_, i) => i < filled)
+
+  // Every chamber, not just the first. The grid stays two-state - filled or
+  // empty; which crop, whose lot and how urgent it is live in the list below
+  // and in the Inventory table.
+  const [chamberId, setChamberId] = useState(OWNER.chambers[0].id)
+  const chamber = OWNER.chambers.find((c) => c.id === chamberId) ?? OWNER.chambers[0]
+  const filled = chamber.filled
+  const chamberLots = OWNER_INVENTORY.filter((l) => l.chamber === chamberId).map((l) => ({
+    ...l,
+    decay: spoilage(l.cropId, l.daysStored),
+  }))
+  const slots = Array.from({ length: chamber.slots }, (_, i) => i < filled)
 
   return (
     <>
@@ -212,7 +225,7 @@ function Occupancy() {
           label="Total Occupancy"
           labelHi="कुल अधिभोग"
           value={`${OWNER.occupancyPct}%`}
-          sub={`+${OWNER.occupancyDelta}% from last week`}
+          sub={`${OWNER.chambers.length} chambers · ${OWNER.chambers.reduce((n, c) => n + c.slots, 0)} micro-slots`}
           icon={LayoutGrid}
           tone="green"
         />
@@ -235,9 +248,29 @@ function Occupancy() {
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[2fr_1fr]">
-        <Card accent="blue" className="p-6">
+        <Card accent="blue" className="min-w-0 p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-xl font-bold">Chamber A: Slot View</h2>
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-xl font-bold">Chamber {chamber.id}: Slot View</h2>
+              <div className="flex gap-1.5" role="tablist" aria-label="Choose chamber">
+                {OWNER.chambers.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={c.id === chamberId}
+                    onClick={() => setChamberId(c.id)}
+                    className={`rounded-full px-3.5 py-1.5 text-sm font-semibold transition ${
+                      c.id === chamberId
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-surface-container-high text-on-surface-variant hover:bg-primary/10'
+                    }`}
+                  >
+                    {c.id}
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="flex items-center gap-4 text-sm text-on-surface-variant">
               <span className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-primary" aria-hidden="true" /> Filled
@@ -253,7 +286,7 @@ function Occupancy() {
           <div
             className="mt-5 grid grid-cols-12 gap-2"
             role="img"
-            aria-label={`${filled} of ${OWNER.chamberSlots} micro-slots filled`}
+            aria-label={`Chamber ${chamber.id}: ${filled} of ${chamber.slots} micro-slots filled`}
           >
             {slots.map((isFilled, i) => (
               <span
@@ -265,12 +298,25 @@ function Occupancy() {
             ))}
           </div>
           <p className="mt-4 text-sm text-on-surface-variant">
-            {filled} of {OWNER.chamberSlots} micro-slots filled · each slot holds{' '}
+            {filled} of {chamber.slots} micro-slots filled · each slot holds{' '}
             {OWNER_SETTINGS.slotSizeKg} kg
           </p>
+          <ul className="mt-3 space-y-1.5 text-sm">
+            {chamberLots.map((l) => (
+              <li key={l.id} className="flex items-center justify-between gap-3">
+                <span className="min-w-0 truncate">
+                  <span className="mr-1.5" aria-hidden="true">{getCrop(l.cropId).emoji}</span>
+                  #{l.id} · {getCrop(l.cropId).name} · {l.farmer} · {kg(l.qtyKg)}
+                </span>
+                <Chip tone={shelfTone(l.decay.remaining)} className="shrink-0">
+                  {l.decay.remaining} day{l.decay.remaining === 1 ? '' : 's'} left
+                </Chip>
+              </li>
+            ))}
+          </ul>
         </Card>
 
-        <Card accent="green" className="p-6">
+        <Card accent="green" className="min-w-0 p-6">
           <h2 className="flex items-center gap-2 text-xl font-bold">
             <Bell size={22} strokeWidth={2.5} className="text-primary" aria-hidden="true" />
             Recent Alerts
@@ -416,9 +462,20 @@ function Inventory() {
               </tr>
             </thead>
             <tbody className="divide-y divide-outline-variant/50">
-              {lots.map((l) => (
-                <tr key={l.id}>
-                  <td className="py-4 pr-4 font-semibold">
+              {lots.map((l) => {
+                const tone = shelfTone(l.decay.remaining)
+                return (
+                <tr
+                  key={l.id}
+                  className={
+                    tone === 'red'
+                      ? 'bg-error-container/50'
+                      : tone === 'amber'
+                        ? 'bg-secondary-container/25'
+                        : 'bg-primary/5'
+                  }
+                >
+                  <td className="rounded-l-md py-4 pl-3 pr-4 font-semibold">
                     #{l.id}
                     {l.pooled && (
                       <span className="ml-2 text-xs font-semibold text-primary">Pooled</span>
@@ -436,13 +493,14 @@ function Inventory() {
                   <td className="whitespace-nowrap py-4 pr-4 text-sm">
                     {l.daysStored} day{l.daysStored === 1 ? '' : 's'}
                   </td>
-                  <td className="py-4">
-                    <Chip tone={l.decay.urgency === 'ok' ? 'green' : l.decay.urgency === 'warning' ? 'amber' : 'red'}>
+                  <td className="rounded-r-md py-4 pr-3">
+                    <Chip tone={tone}>
                       {l.decay.remaining} days
                     </Chip>
                   </td>
                 </tr>
-              ))}
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -841,17 +899,11 @@ function FacilitySettings() {
                   aria-checked={on}
                   aria-label={t.label}
                   onClick={() => flip(t.id)}
-                  className={`relative h-8 w-14 shrink-0 rounded-full transition ${
-                    on ? 'bg-primary' : 'bg-surface-container-highest'
+                  className={`flex h-8 w-14 shrink-0 items-center rounded-full p-1 transition-colors ${
+                    on ? 'justify-end bg-primary' : 'justify-start bg-outline-variant'
                   }`}
                 >
-                  <span
-                    className={`absolute top-1 grid h-6 w-6 place-items-center rounded-full bg-surface-container-lowest shadow-card transition-all ${
-                      on ? 'left-7' : 'left-1'
-                    }`}
-                  >
-                    {on && <Check size={14} strokeWidth={3.5} className="text-primary" aria-hidden="true" />}
-                  </span>
+                  <span className="h-6 w-6 rounded-full bg-white shadow-card" aria-hidden="true" />
                 </button>
               </li>
             )
